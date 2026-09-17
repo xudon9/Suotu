@@ -153,4 +153,14 @@
     <string name="draw_selected">Selected %1$d × %2$d of the original</string>
     <string name="clear_selection">Whole image</string>
     <string name="adjust">Adjust</string>
+
+    <!-- Replace original -->
+    <string name="replace_original">Replace</string>
+    <string name="replace_confirm_title">Replace the original?</string>
+    <string name="replace_confirm_body">The full-size original will be overwritten with the %1$s version and cannot be recovered.\n\n%2$s → %3$s</string>
+    <string name="replace_confirm_rename">The file will be renamed to %1$s to match the new format.</string>
+    <string name="replace_confirm_ok">Replace</string>
+    <string name="replace_done">Original replaced</string>
+    <string name="replace_failed">Could not replace the original: %1$s</string>
+    <string name="replace_not_supported">This image cannot be replaced in place. Pick it from the gallery or share it to Suotu instead.</string>
 </resources>

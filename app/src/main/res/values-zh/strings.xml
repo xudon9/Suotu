@@ -153,4 +153,14 @@
     <string name="draw_selected">已选择原图的 %1$d × %2$d</string>
     <string name="clear_selection">整张图片</string>
     <string name="adjust">微调</string>
+
+    <!-- Replace original -->
+    <string name="replace_original">替换原图</string>
+    <string name="replace_confirm_title">替换原图？</string>
+    <string name="replace_confirm_body">原始大图将被 %1$s 版本覆盖，且无法恢复。\n\n%2$s → %3$s</string>
+    <string name="replace_confirm_rename">文件将重命名为 %1$s 以匹配新格式。</string>
+    <string name="replace_confirm_ok">替换</string>
+    <string name="replace_done">原图已替换</string>
+    <string name="replace_failed">无法替换原图：%1$s</string>
+    <string name="replace_not_supported">该图片无法就地替换。请从相册中选择，或通过分享打开。</string>
 </resources>
