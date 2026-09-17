@@ -26,6 +26,21 @@ class Settings(context: Context) {
             .putInt(KEY_WIDTH, value.coerceIn(SizeRange.MIN_WIDTH, SizeRange.MAX_WIDTH))
             .apply()
 
+    /**
+     * Manual encoder quality, or null when quality is chosen automatically.
+     *
+     * Auto remains the default. The measured case for capping quality
+     * (tools/readability_sweep.py) was an OCR sweep over TEXT, where q40 and q90 are
+     * equally legible — that result does not generalise to photographs, where higher
+     * quality is visibly better. So the automatic choice stays, and this overrides it
+     * when the user knows the image is photographic.
+     */
+    var manualQuality: Int?
+        get() = prefs.getInt(KEY_QUALITY, 0).takeIf { it in QUALITY_MIN..QUALITY_MAX }
+        set(value) = prefs.edit()
+            .putInt(KEY_QUALITY, value?.coerceIn(QUALITY_MIN, QUALITY_MAX) ?: 0)
+            .apply()
+
     /** Opt-in: watch for new files and save a shrunk copy automatically. */
     var autoShrinkEnabled: Boolean
         get() = prefs.getBoolean(KEY_AUTO, false)
@@ -87,19 +102,26 @@ class Settings(context: Context) {
         prefs.edit().putStringSet(KEY_SEEN, trimmed).apply()
     }
 
-    private companion object {
-        const val KEY_PRESET = "preset"
-        const val KEY_WIDTH = "output_width"
-        const val KEY_FORMAT = "format"
-        const val KEY_AUTO = "auto_shrink"
-        const val KEY_AUTO_NOTIFY = "auto_shrink_notify"
-        const val KEY_AUTO_RULES = "auto_shrink_rules"
-        const val KEY_OPEN_RULES = "open_rules"
-        const val KEY_OPEN_RECENCY = "open_recency_seconds"
-        const val KEY_OPEN_DETECT = "open_detect"
-        const val KEY_SEEN = "seen_names"
-        const val SEEN_LIMIT = 40
-        const val DEFAULT_RECENCY_SECONDS = 60
+    companion object {
+        /** Below ~30 even photographs show obvious blocking. */
+        const val QUALITY_MIN = 30
+
+        /** Above ~95 the extra bytes buy nothing visible. */
+        const val QUALITY_MAX = 95
+
+        private const val KEY_PRESET = "preset"
+        private const val KEY_WIDTH = "output_width"
+        private const val KEY_FORMAT = "format"
+        private const val KEY_AUTO = "auto_shrink"
+        private const val KEY_AUTO_NOTIFY = "auto_shrink_notify"
+        private const val KEY_AUTO_RULES = "auto_shrink_rules"
+        private const val KEY_OPEN_RULES = "open_rules"
+        private const val KEY_OPEN_RECENCY = "open_recency_seconds"
+        private const val KEY_OPEN_DETECT = "open_detect"
+        private const val KEY_SEEN = "seen_names"
+        private const val SEEN_LIMIT = 40
+        private const val DEFAULT_RECENCY_SECONDS = 60
+        private const val KEY_QUALITY = "manual_quality"
     }
 }
 

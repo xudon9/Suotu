@@ -111,12 +111,18 @@ class ShrinkActivity : AppCompatActivity() {
                 var width by remember { mutableIntStateOf(settings.outputWidth) }
                 var sliderPos by remember { mutableFloatStateOf(width.toFloat()) }
                 var policy by remember { mutableStateOf(settings.formatPolicy) }
+                // null = Auto (the engine searches); a value overrides it.
+                var manualQuality by remember { mutableStateOf(settings.manualQuality) }
                 var source by remember { mutableStateOf(shared) }
                 var manualPick by remember { mutableStateOf(false) }
                 var crop by remember { mutableStateOf(CropRect.FULL) }
                 var cropping by remember { mutableStateOf(false) }
                 var fullscreen by remember { mutableStateOf(false) }
                 var confirmReplace by remember { mutableStateOf(false) }
+                // Annotation is behind an explicit mode: it is used rarely compared to
+                // the width slider and cropping, so it must not compete with them.
+                var annotating by remember { mutableStateOf(false) }
+                var annotations by remember { mutableStateOf(AnnotationState()) }
                 var toast by remember { mutableStateOf<String?>(null) }
                 var sourceImage by remember { mutableStateOf<ImageBitmap?>(null) }
                 var state by remember {
@@ -187,9 +193,9 @@ class ShrinkActivity : AppCompatActivity() {
                     }
                 }
 
-                LaunchedEffect(source, width, policy, crop) {
+                LaunchedEffect(source, width, policy, crop, manualQuality, annotations.items) {
                     val uri = source ?: return@LaunchedEffect
-                    // Debounce: the slider fires continuously while dragging, and each
+                    // Debounce: the sliders fire continuously while dragging, and each
                     // re-encode runs a multi-step quality search.
                     delay(180)
                     state = UiState.Working
@@ -202,6 +208,8 @@ class ShrinkActivity : AppCompatActivity() {
                                 budgetBytes = SizeRange.budgetFor(width),
                                 formatPolicy = policy,
                                 crop = crop.takeIf { !it.isFullFrame },
+                                forcedQuality = manualQuality,
+                                annotations = annotations.items,
                             )
                         }
                         UiState.Ready(result)
@@ -223,7 +231,32 @@ class ShrinkActivity : AppCompatActivity() {
                 // to divide and the crop canvas grows to the image's natural height,
                 // pushing the action buttons off-screen. Disabling the scroll does not
                 // help, because the constraints are still unbounded.
-                if (cropping && img != null) {
+                if (annotating && img != null) {
+                    // Same bounded, non-scrolling layout as the crop screen, for the
+                    // same reason: the toolbars must never be pushed off-screen.
+                    Surface(Modifier.fillMaxSize()) {
+                        Column(
+                            Modifier
+                                .fillMaxSize()
+                                .safeDrawingPadding()
+                                .padding(20.dp),
+                        ) {
+                            Text(
+                                stringResource(R.string.annotate_title),
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            AnnotationEditor(
+                                image = img,
+                                state = annotations,
+                                onStateChange = { annotations = it },
+                                onApply = { annotating = false },
+                                onCancel = { annotating = false },
+                            )
+                        }
+                    }
+                } else if (cropping && img != null) {
                     Surface(Modifier.fillMaxSize()) {
                         Column(
                             Modifier
@@ -297,11 +330,20 @@ class ShrinkActivity : AppCompatActivity() {
                             )
 
                             Spacer(Modifier.height(10.dp))
+                            QualityControl(
+                                manual = manualQuality,
+                                actual = (state as? UiState.Ready)?.result?.quality,
+                                onChange = {
+                                    manualQuality = it
+                                    settings.manualQuality = it
+                                },
+                            )
+
+                            Spacer(Modifier.height(10.dp))
                             FormatRow(selected = policy) {
                                 policy = it
                                 settings.formatPolicy = it
                             }
-
                             Spacer(Modifier.height(16.dp))
 
                             when (val s = state) {
@@ -360,6 +402,14 @@ class ShrinkActivity : AppCompatActivity() {
                                             enabled = sourceImage != null,
                                             modifier = Modifier.weight(1f),
                                         ) { Text(stringResource(R.string.adjust)) }
+
+                                        OutlinedButton(
+                                            onClick = { annotating = true },
+                                            enabled = sourceImage != null,
+                                            modifier = Modifier.weight(1.2f),
+                                        ) {
+                                            Text(stringResource(R.string.annotate))
+                                        }
 
                                         // Destructive, so it is an outlined button
                                         // next to Send rather than a second primary.
@@ -527,9 +577,67 @@ class ShrinkActivity : AppCompatActivity() {
                     )
                 }
             }
-            Spacer(Modifier.height(4.dp))
+        }
+    }
+
+    /**
+     * Quality: Auto by default, with a manual override.
+     *
+     * Auto is not merely a convenience. The measured argument for a low quality ceiling
+     * came from an OCR sweep over TEXT, where q40 and q90 are equally legible; that does
+     * not hold for photographs, so a manual override is genuinely needed. In Auto the
+     * value actually chosen is shown, so the number is never a mystery.
+     */
+    @Composable
+    private fun QualityControl(
+        manual: Int?,
+        actual: Int?,
+        onChange: (Int?) -> Unit,
+    ) {
+        Column {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    stringResource(R.string.quality_label),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    when {
+                        manual != null -> stringResource(R.string.quality_manual, manual)
+                        actual != null ->
+                            stringResource(R.string.quality_auto_detail, actual)
+                        else -> stringResource(R.string.quality_auto)
+                    },
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                FilterChip(
+                    selected = manual == null,
+                    onClick = { onChange(null) },
+                    label = { Text(stringResource(R.string.quality_auto)) },
+                )
+                Slider(
+                    // Starts from whatever Auto just picked, so switching to manual
+                    // does not jolt the image to an unrelated quality.
+                    value = (manual ?: actual ?: 80).toFloat(),
+                    onValueChange = { onChange(it.toInt()) },
+                    valueRange = Settings.QUALITY_MIN.toFloat()..
+                        Settings.QUALITY_MAX.toFloat(),
+                    modifier = Modifier.weight(1f),
+                )
+            }
+
             Text(
-                stringResource(R.string.quality_auto_note),
+                stringResource(
+                    if (manual == null) R.string.quality_note_auto
+                    else R.string.quality_note_manual
+                ),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

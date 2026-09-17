@@ -90,6 +90,8 @@ object ShrinkEngine {
         budgetBytes: Int,
         formatPolicy: FormatPolicy,
         crop: CropRect? = null,
+        forcedQuality: Int? = null,
+        annotations: List<Annotation> = emptyList(),
     ): ShrinkResult {
         val sourceBytes = querySize(context, uri)
         val (srcWidth, srcHeight) = readDimensions(context, uri)
@@ -104,8 +106,22 @@ object ShrinkEngine {
             ?: throw IllegalStateException("Could not decode the image")
 
         val oriented = applyExifRotation(context, uri, decoded)
-        val cropped = crop?.let { applyCrop(oriented, it) } ?: oriented
-        if (cropped !== oriented) oriented.recycle()
+
+        // Annotate BEFORE cropping and scaling.
+        //
+        // Annotation coordinates are normalised against the whole source image, so they
+        // must be applied while the bitmap still represents that whole image. Doing it
+        // after the crop would place every mark in the wrong spot; doing it after the
+        // scale would bake in preview-sized strokes that no longer match the output.
+        val annotated = if (annotations.isEmpty()) {
+            oriented
+        } else {
+            AnnotationRenderer.flatten(oriented, annotations)
+        }
+        if (annotated !== oriented) oriented.recycle()
+
+        val cropped = crop?.let { applyCrop(annotated, it) } ?: annotated
+        if (cropped !== annotated) annotated.recycle()
 
         val scaled = scaleToWidth(cropped, targetWidth)
         if (scaled !== cropped) cropped.recycle()
@@ -116,7 +132,16 @@ object ShrinkEngine {
         }
 
         val best = candidates
-            .map { format -> searchQuality(scaled, format, budgetBytes) }
+            .map { format ->
+                if (forcedQuality != null) {
+                    // Manual override: encode exactly what was asked for. The budget is
+                    // deliberately not enforced here — the user chose this quality, and
+                    // silently overriding it would make the slider a lie.
+                    encodeAt(scaled, format, forcedQuality)
+                } else {
+                    searchQuality(scaled, format, budgetBytes)
+                }
+            }
             .reduce { a, b -> pickBetter(a, b, budgetBytes) }
 
         val result = ShrinkResult(
@@ -193,6 +218,16 @@ object ShrinkEngine {
             aFits && bFits -> if (a.quality >= b.quality) a else b
             else -> if (a.bytes.size <= b.bytes.size) a else b
         }
+    }
+
+    /** Encode once at an exact quality, for the manual override. */
+    private fun encodeAt(
+        bitmap: Bitmap,
+        format: EncodedFormat,
+        quality: Int,
+    ): Encoded {
+        val clamped = quality.coerceIn(Settings.QUALITY_MIN, Settings.QUALITY_MAX)
+        return Encoded(encode(bitmap, format, clamped), clamped, format)
     }
 
     /**

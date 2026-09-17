@@ -89,6 +89,9 @@ python3 tools/threshold_sweep.py      # where small text actually breaks
 python3 tools/test_rule_matching.py   # watch-rule matching + anti-loop guards
 python3 tools/test_crop_geometry.py   # crop hit-testing: symmetric grab zones
 python3 tools/test_crop_layout.py     # crop action row stays on screen
+python3 tools/test_lasso_mapping.py   # letterbox-aware touch mapping
+python3 tools/test_replace_naming.py  # extension follows the encoded format
+python3 tools/test_annotation_geometry.py  # arrowheads + shape hit-testing
 ```
 
 ## Caveat worth knowing

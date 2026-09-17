@@ -163,4 +163,33 @@
     <string name="replace_done">原图已替换</string>
     <string name="replace_failed">无法替换原图：%1$s</string>
     <string name="replace_not_supported">该图片无法就地替换。请从相册中选择，或通过分享打开。</string>
+
+    <!-- Quality slider -->
+    <string name="quality_label">画质</string>
+    <string name="quality_auto">自动</string>
+    <string name="quality_auto_detail">自动（%1$d）</string>
+    <string name="quality_manual">手动 %1$d</string>
+    <string name="quality_note_auto">画质会自动选择以满足体积预算。</string>
+    <string name="quality_note_manual">越高越清晰但文件越大。截图推荐使用自动模式。</string>
+
+    <!-- Annotation -->
+    <string name="annotate">标注</string>
+    <string name="annotate_title">标注</string>
+    <string name="annotate_tool_brush">画笔</string>
+    <string name="annotate_tool_rect">矩形</string>
+    <string name="annotate_tool_circle">圆形</string>
+    <string name="annotate_tool_arrow">箭头</string>
+    <string name="annotate_tool_text">文字</string>
+    <string name="annotate_tool_blur">模糊</string>
+    <string name="annotate_thickness">粗细</string>
+    <string name="annotate_color">颜色</string>
+    <string name="annotate_undo">撤销</string>
+    <string name="annotate_clear">清除全部</string>
+    <string name="annotate_apply">应用</string>
+    <string name="annotate_cancel">取消</string>
+    <string name="annotate_hint">在图片上绘制。点击形状可选中。</string>
+    <string name="annotate_text_hint">输入文字标注</string>
+    <string name="annotate_text_ok">添加</string>
+    <string name="annotate_clear_confirm">删除所有标注？</string>
+    <string name="remove">删除</string>
 </resources>
