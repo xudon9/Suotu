@@ -31,6 +31,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -97,6 +98,9 @@ fun AnnotationEditor(
 
     // The bitmap the blur tool samples, so the live preview shows real mosaic pixels.
     val androidBitmap: Bitmap = remember(image) { image.asAndroidBitmap() }
+    DisposableEffect(image) {
+        onDispose { AnnotationRenderer.invalidateBlurCache() }
+    }
 
     Column(Modifier.fillMaxSize()) {
         Text(
@@ -263,13 +267,30 @@ fun AnnotationEditor(
                                     fillRef.value,
                                 )
                                 if (draft != null) {
-                                    AnnotationRenderer.render(
-                                        native,
-                                        listOf(draft),
-                                        fit.displayWidth.toInt(),
-                                        fit.displayHeight.toInt(),
-                                        sourceForBlur = androidBitmap,
-                                    )
+                                    // A blur-painted draft is shown as an OUTLINE while
+                                    // the finger is down. A Gaussian pass costs tens of
+                                    // milliseconds, so blurring every frame made the
+                                    // drag lag behind the finger; an outline that tracks
+                                    // it exactly feels responsive, and the real blur
+                                    // appears the moment the finger lifts.
+                                    val isBlurDraft = colorRef.value.isBlur() ||
+                                        fillRef.value.isBlur()
+                                    if (isBlurDraft) {
+                                        AnnotationRenderer.drawBlurPlaceholder(
+                                            native,
+                                            draft,
+                                            fit.displayWidth.toInt(),
+                                            fit.displayHeight.toInt(),
+                                        )
+                                    } else {
+                                        AnnotationRenderer.render(
+                                            native,
+                                            listOf(draft),
+                                            fit.displayWidth.toInt(),
+                                            fit.displayHeight.toInt(),
+                                            sourceForBlur = androidBitmap,
+                                        )
+                                    }
                                 }
                                 native.restoreToCount(save)
                             }

@@ -1,7 +1,7 @@
 package com.xudong.suotu
 
 import android.graphics.Bitmap
-import kotlin.math.ceil
+
 import kotlin.math.exp
 import kotlin.math.roundToInt
 
@@ -134,11 +134,8 @@ object GaussianBlur {
         return imageWidth * (0.003f + t * 0.032f)
     }
 
-    /**
-     * Cap on the radius used for an interactive preview.
-     *
-     * The cost is linear in radius, and a 44px radius over a large region is tens of
-     * milliseconds — fine when flattening once, too slow to redo on every pointer move.
-     */
-    fun previewRadius(radius: Float): Float = ceil(radius.coerceAtMost(12f))
+    // A previewRadius() helper used to cap the radius during a drag. It is gone: a
+    // cheaper blur still cost a full pass per frame, and the drag stayed sluggish. The
+    // editor now draws a plain outline while the finger is down and blurs once on
+    // release, which is both faster and exact.
 }
