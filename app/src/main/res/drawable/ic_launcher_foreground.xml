@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Four arrows pointing inward: "shrink". Drawn on the standard 108dp adaptive
+     canvas, with content kept inside the 72dp safe zone. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- top-left arrow -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M38,38 L38,26 L44,26 L44,32 L56,20 L60,24 L48,36 L54,36 L54,42 Z" />
+    <!-- top-right arrow (mirrored) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M70,38 L70,26 L64,26 L64,32 L52,20 L48,24 L60,36 L54,36 L54,42 Z" />
+    <!-- bottom-left arrow -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M38,70 L38,82 L44,82 L44,76 L56,88 L60,84 L48,72 L54,72 L54,66 Z" />
+    <!-- bottom-right arrow -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M70,70 L70,82 L64,82 L64,76 L52,88 L48,84 L60,72 L54,72 L54,66 Z" />
+
+    <!-- center frame indicating the resulting small image -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.9"
+        android:pathData="M46,46 h16 v16 h-16 z" />
+</vector>

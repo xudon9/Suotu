@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Suotu</string>
+    <string name="share_target_label">Suotu</string>
+
+    <!-- Main screen -->
+    <string name="settings">Settings</string>
+    <string name="open_an_image">Open an image</string>
+    <string name="change">Change</string>
+    <string name="send_size">Send · %1$s</string>
+    <string name="before">Before</string>
+    <string name="after">After</string>
+    <string name="saved">Saved</string>
+    <string name="looking_for_recent">Looking for a recent image…</string>
+    <string name="pick_an_image">Pick an image to shrink.</string>
+    <string name="no_match_recent">No matching image from the last %1$s.</string>
+    <string name="need_photo_access">Grant photo access to open your newest screenshot automatically — or just pick one.</string>
+    <string name="usage_hint">Or: screenshot → Share → Suotu</string>
+    <string name="budget_missed">Could not reach the size target without hurting readability — this is the smallest safe version.</string>
+    <string name="err_lost_access">Lost access to that image.\n\nPlease share it again, or pick it manually.</string>
+    <string name="err_too_large">That image is too large to process.</string>
+    <string name="err_generic">Could not process this image</string>
+    <string name="send_chooser_title">Send shrunk image</string>
+
+    <!-- Presets -->
+    <string name="preset_tiny">Tiny</string>
+    <string name="preset_normal">Normal</string>
+    <string name="preset_sharp">Sharp</string>
+    <string name="hint_tiny">big text / photos</string>
+    <string name="hint_normal">safe for full screenshots</string>
+    <string name="hint_sharp">dense text / code</string>
+    <string name="format_auto">Auto (smallest)</string>
+    <string name="format_jpeg">JPEG only</string>
+
+    <!-- Settings: auto-shrink -->
+    <string name="auto_shrink_title">Auto-shrink in background</string>
+    <string name="auto_shrink_desc">Silently save a small copy to the %1$s album. Originals are kept.</string>
+    <string name="notify_title">Notify when ready</string>
+    <string name="notify_desc">Silent, with a one-tap Share button.</string>
+    <string name="perm_required">Photo access is required to watch for new files. Grant it in Settings → Apps → Suotu → Permissions.</string>
+    <string name="folders_watch_title">Folders to watch</string>
+    <string name="folders_watch_desc">Keep this narrow. Every matching file is shrunk without asking — you probably do not want that for photos.</string>
+
+    <!-- Settings: open detection -->
+    <string name="open_detect_title">Open newest image on launch</string>
+    <string name="open_detect_desc">When you open the app, load the newest matching image if it is recent enough. Otherwise show a picker button.</string>
+    <string name="open_if_newer">Open automatically if newer than</string>
+    <string name="folders_offer_title">Folders to offer</string>
+    <string name="folders_offer_desc">This list can be broader than the watch list above — nothing is saved unless you tap Send.</string>
+
+    <!-- Settings: language -->
+    <string name="language_title">Language</string>
+    <string name="language_system">System</string>
+    <string name="language_english">English</string>
+    <string name="language_chinese">中文</string>
+
+    <!-- Rule editor -->
+    <string name="rule_folder">Folder</string>
+    <string name="rule_pattern">File name pattern (regex)</string>
+    <string name="rule_pattern_help">Matched against the file name only</string>
+    <string name="rule_pattern_invalid">Invalid regular expression</string>
+    <string name="rule_remove">Remove</string>
+    <string name="rule_add">Add folder</string>
+    <string name="rule_none">No folders configured — nothing will match.</string>
+    <string name="rule_choose">Choose</string>
+    <string name="rule_test">Test</string>
+
+    <!-- Folder picker -->
+    <string name="folder_picker_title">Choose a folder</string>
+    <string name="folder_picker_desc">Folders that currently contain images.</string>
+    <string name="folder_picker_browse">Browse…</string>
+    <string name="folder_picker_images">%1$d images</string>
+    <string name="folder_picker_empty">No image folders found.</string>
+    <string name="folder_unsupported">That folder is outside shared storage and cannot be watched.</string>
+    <string name="cancel">Cancel</string>
+    <string name="close">Close</string>
+
+    <!-- Regex tester -->
+    <string name="test_title">Pattern test</string>
+    <string name="test_desc">Files in %1$s and whether the pattern matches.</string>
+    <string name="test_matched">%1$d of %2$d files match</string>
+    <string name="test_empty">No files found in this folder.</string>
+
+    <!-- Notification -->
+    <string name="notif_channel">Auto-shrink</string>
+    <string name="notif_channel_desc">Tells you when a shrunk screenshot is ready to share.</string>
+    <string name="notif_title">Shrunk copy ready</string>
+    <string name="notif_text">%1$s → %2$s</string>
+    <string name="notif_text_saved">%1$s → %2$s · %3$d%% smaller</string>
+    <string name="notif_action_share">Share</string>
+    <string name="notif_tap_hint">Tap to share</string>
+
+    <!-- Size slider -->
+    <string name="width_label">Output width</string>
+    <string name="width_value">%1$d px wide</string>
+    <string name="width_result">%1$d × %2$d</string>
+    <string name="quick_sizes">Quick sizes</string>
+    <string name="quality_auto_note">Quality is chosen automatically to keep text readable.</string>
+
+    <!-- Crop -->
+    <string name="crop">Crop</string>
+    <string name="crop_title">Crop</string>
+    <string name="crop_hint">Drag the corners or edges. Drag inside to move.</string>
+    <string name="crop_reset">Reset</string>
+    <string name="crop_apply">Apply</string>
+    <string name="crop_full">Full frame</string>
+
+    <!-- Fullscreen preview -->
+    <string name="preview_fullscreen">Tap to view full screen</string>
+    <string name="preview_zoom_hint">Pinch to zoom · double-tap to reset</string>
+
+    <!-- Help -->
+    <string name="help">Help</string>
+    <string name="help_title">How Suotu works</string>
+    <string name="help_intro">Suotu makes a screenshot small enough to send comfortably over chat apps, while keeping the text readable.</string>
+
+    <string name="help_quick_title">Quick start</string>
+    <string name="help_quick_body">1. Take a screenshot.\n2. Open Suotu, or use Share → Suotu.\n3. Optionally crop, and drag the width slider.\n4. Tap Send and choose the app.</string>
+
+    <string name="help_size_title">Choosing a size</string>
+    <string name="help_size_body">The slider sets the output WIDTH in pixels. Width matters more than a percentage: readability depends on how tall the letters end up, so a fixed percentage is too harsh for a full-screen capture and pointless for a small crop.\n\nMeasurements on rendered UI text found the readable floor is around a 10 px letter height. On a 1260-px-wide phone screenshot, small captions are about 22 px tall, which puts the safe floor near 570 px. 720 px is a comfortable default.\n\nQuality is not a slider on purpose: the app searches for the highest quality that fits the size budget, and tests showed quality 40 and quality 90 equally readable for text while 90 cost about 70% more bytes.</string>
+
+    <string name="help_format_title">WebP or JPEG</string>
+    <string name="help_format_body">Auto encodes both WebP and JPEG and keeps the better result. For screenshots WebP is usually about half the size of JPEG at the same legibility. Choose JPEG only if a recipient cannot display WebP.</string>
+
+    <string name="help_auto_title">Automatic shrinking</string>
+    <string name="help_auto_body">Suotu can watch folders and save a small copy on its own, without opening the app. Turn it on in Settings.\n\nDetection is event-based: the system wakes the app when the gallery changes, so nothing runs in the background while you are idle.\n\nCopies go to the Suotu album and originals are never touched. Tapping the notification opens the share sheet directly.</string>
+
+    <string name="help_rules_title">Two folder lists</string>
+    <string name="help_rules_body">Folders to watch is used for silent background shrinking. Keep it narrow — every matching file is shrunk without asking, which is rarely what you want for camera photos.\n\nFolders to offer is used when you open the app, to load your newest image. This one can be broader, because nothing is saved until you tap Send.\n\nEach rule is a folder plus a file-name pattern. Use Choose to pick a folder and Test to see which file names the pattern matches.</string>
+
+    <string name="help_privacy_title">Privacy</string>
+    <string name="help_privacy_body">Nothing leaves your phone. All resizing happens on the device, there is no network access, and photo permission is only needed for folder watching and for opening your newest image.</string>
+
+    <string name="help_note_title">Worth knowing</string>
+    <string name="help_note_body">Some chat apps re-compress images when sending unless you pick the original-quality option. The savings here are your storage and upload data, plus a predictable result. Send as a file to keep the exact bytes.</string>
+
+    <!-- About -->
+    <string name="about_title">About</string>
+    <string name="about_version">Version %1$s</string>
+    <string name="about_package">Package %1$s</string>
+    <string name="about_tagline">Shrink screenshots for sharing, while keeping the text readable.</string>
+    <string name="about_license">Released under the MIT License.</string>
+    <string name="about_source">Source code</string>
+    <string name="about_source_url">https://github.com/xudon9/Suotu</string>
+    <string name="about_built_with">Built with Kotlin and Jetpack Compose. Image encoding uses the Android platform WebP and JPEG encoders; no third-party image libraries.</string>
+    <string name="about_no_network">This app requests no network permission.</string>
+    <string name="about_copy">Copy details</string>
+    <string name="about_copied">Copied</string>
+</resources>

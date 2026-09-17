@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark-mode window background, matching Material3 dark surface. -->
+    <color name="window_background">#1A1C1A</color>
+</resources>

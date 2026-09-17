@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Shrunk output lives in cache/shared and is exposed only through FileProvider. -->
+    <cache-path name="shared" path="shared/" />
+</paths>

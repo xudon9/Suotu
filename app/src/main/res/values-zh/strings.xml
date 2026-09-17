@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">缩图</string>
+    <string name="share_target_label">缩图</string>
+
+    <!-- Main screen -->
+    <string name="settings">设置</string>
+    <string name="open_an_image">选择图片</string>
+    <string name="change">更换</string>
+    <string name="send_size">发送 · %1$s</string>
+    <string name="before">压缩前</string>
+    <string name="after">压缩后</string>
+    <string name="saved">已节省</string>
+    <string name="looking_for_recent">正在查找最近的图片…</string>
+    <string name="pick_an_image">请选择要压缩的图片。</string>
+    <string name="no_match_recent">最近 %1$s 内没有符合条件的图片。</string>
+    <string name="need_photo_access">授予相册权限后可自动打开最新截图，也可以手动选择。</string>
+    <string name="usage_hint">或：截图 → 分享 → 缩图</string>
+    <string name="budget_missed">无法在保证文字清晰的前提下达到目标体积，这已是最小的安全版本。</string>
+    <string name="err_lost_access">已失去该图片的访问权限。\n\n请重新分享，或手动选择。</string>
+    <string name="err_too_large">图片过大，无法处理。</string>
+    <string name="err_generic">无法处理这张图片</string>
+    <string name="send_chooser_title">发送压缩后的图片</string>
+
+    <!-- Presets -->
+    <string name="preset_tiny">最小</string>
+    <string name="preset_normal">标准</string>
+    <string name="preset_sharp">清晰</string>
+    <string name="hint_tiny">大字 / 照片</string>
+    <string name="hint_normal">适合整屏截图</string>
+    <string name="hint_sharp">密集文字 / 代码</string>
+    <string name="format_auto">自动（最小）</string>
+    <string name="format_jpeg">仅 JPEG</string>
+
+    <!-- Settings: auto-shrink -->
+    <string name="auto_shrink_title">后台自动压缩</string>
+    <string name="auto_shrink_desc">静默保存小图到 %1$s 相册，原图保留。</string>
+    <string name="notify_title">完成后通知</string>
+    <string name="notify_desc">静音通知，点击即可分享。</string>
+    <string name="perm_required">需要相册权限才能监测新文件。请在 设置 → 应用 → 缩图 → 权限 中开启。</string>
+    <string name="folders_watch_title">监测的文件夹</string>
+    <string name="folders_watch_desc">建议范围小一些。匹配到的文件都会被自动压缩——照片通常不需要。</string>
+
+    <!-- Settings: open detection -->
+    <string name="open_detect_title">启动时打开最新图片</string>
+    <string name="open_detect_desc">打开应用时，如果最新的匹配图片足够新就直接载入，否则显示选择按钮。</string>
+    <string name="open_if_newer">自动打开的时间范围</string>
+    <string name="folders_offer_title">可选择的文件夹</string>
+    <string name="folders_offer_desc">这里可以比上面的监测列表更宽——不点发送就不会保存任何文件。</string>
+
+    <!-- Settings: language -->
+    <string name="language_title">语言</string>
+    <string name="language_system">跟随系统</string>
+    <string name="language_english">English</string>
+    <string name="language_chinese">中文</string>
+
+    <!-- Rule editor -->
+    <string name="rule_folder">文件夹</string>
+    <string name="rule_pattern">文件名匹配（正则）</string>
+    <string name="rule_pattern_help">只匹配文件名，不含路径</string>
+    <string name="rule_pattern_invalid">正则表达式无效</string>
+    <string name="rule_remove">删除</string>
+    <string name="rule_add">添加文件夹</string>
+    <string name="rule_none">尚未配置文件夹，不会匹配任何文件。</string>
+    <string name="rule_choose">选择</string>
+    <string name="rule_test">测试</string>
+
+    <!-- Folder picker -->
+    <string name="folder_picker_title">选择文件夹</string>
+    <string name="folder_picker_desc">当前含有图片的文件夹。</string>
+    <string name="folder_picker_browse">浏览…</string>
+    <string name="folder_picker_images">%1$d 张图片</string>
+    <string name="folder_picker_empty">未找到含图片的文件夹。</string>
+    <string name="folder_unsupported">该文件夹不在共享存储中，无法监测。</string>
+    <string name="cancel">取消</string>
+    <string name="close">关闭</string>
+
+    <!-- Regex tester -->
+    <string name="test_title">匹配测试</string>
+    <string name="test_desc">%1$s 中的文件及匹配结果。</string>
+    <string name="test_matched">%2$d 个文件中匹配 %1$d 个</string>
+    <string name="test_empty">该文件夹中没有文件。</string>
+
+    <!-- Notification -->
+    <string name="notif_channel">自动压缩</string>
+    <string name="notif_channel_desc">压缩完成后提醒你分享。</string>
+    <string name="notif_title">小图已就绪</string>
+    <string name="notif_text">%1$s → %2$s</string>
+    <string name="notif_text_saved">%1$s → %2$s · 减少 %3$d%%</string>
+    <string name="notif_action_share">分享</string>
+    <string name="notif_tap_hint">点击分享</string>
+
+    <!-- Size slider -->
+    <string name="width_label">输出宽度</string>
+    <string name="width_value">宽 %1$d 像素</string>
+    <string name="width_result">%1$d × %2$d</string>
+    <string name="quick_sizes">快捷尺寸</string>
+    <string name="quality_auto_note">画质会自动选择，以保证文字清晰。</string>
+
+    <!-- Crop -->
+    <string name="crop">裁剪</string>
+    <string name="crop_title">裁剪</string>
+    <string name="crop_hint">拖动四角或边缘调整，拖动内部可移动。</string>
+    <string name="crop_reset">重置</string>
+    <string name="crop_apply">应用</string>
+    <string name="crop_full">整张</string>
+
+    <!-- Fullscreen preview -->
+    <string name="preview_fullscreen">点击全屏查看</string>
+    <string name="preview_zoom_hint">双指缩放 · 双击复位</string>
+
+    <!-- Help -->
+    <string name="help">帮助</string>
+    <string name="help_title">缩图使用说明</string>
+    <string name="help_intro">缩图把截图压缩到便于在聊天软件中发送的大小，同时保持文字清晰可读。</string>
+
+    <string name="help_quick_title">快速上手</string>
+    <string name="help_quick_body">1. 截图。\n2. 打开缩图，或使用 分享 → 缩图。\n3. 可选裁剪，并拖动宽度滑块。\n4. 点击发送并选择应用。</string>
+
+    <string name="help_size_title">如何选择尺寸</string>
+    <string name="help_size_body">滑块设置输出的像素宽度。宽度比百分比更有意义：文字是否清晰取决于字形最终的像素高度，因此固定百分比对整屏截图过于激进，对小块裁剪又毫无意义。\n\n对界面文字的实测表明，可读下限约为 10 像素字高。在 1260 像素宽的手机截图中，小号说明文字约 22 像素高，因此安全下限约为 570 像素，720 像素是比较稳妥的默认值。\n\n画质没有做成滑块是有意为之：应用会自动搜索在体积预算内的最高画质。实测显示，对文字而言画质 40 与 90 的可读性相同，但 90 要多占约 70% 的体积。</string>
+
+    <string name="help_format_title">WebP 还是 JPEG</string>
+    <string name="help_format_body">自动模式会同时编码 WebP 和 JPEG，保留更优的结果。对截图而言，在同等清晰度下 WebP 通常只有 JPEG 的一半大小。只有当接收方无法显示 WebP 时才需要选择「仅 JPEG」。</string>
+
+    <string name="help_auto_title">自动压缩</string>
+    <string name="help_auto_body">缩图可以监测文件夹并自动保存小图，无需打开应用。可在设置中开启。\n\n检测基于系统事件：相册变化时系统会唤醒应用，空闲时不会有后台进程持续运行。\n\n小图保存在「Suotu」相册，原图不会被修改。点击通知可直接打开分享面板。</string>
+
+    <string name="help_rules_title">两个文件夹列表</string>
+    <string name="help_rules_body">「监测的文件夹」用于后台静默压缩。建议范围小一些——匹配到的文件都会被自动压缩，这对相机照片通常并不合适。\n\n「可选择的文件夹」用于打开应用时载入最新图片。这个列表可以更宽，因为不点发送就不会保存任何文件。\n\n每条规则由文件夹和文件名规则组成。用「选择」挑选文件夹，用「测试」查看哪些文件名会被匹配。</string>
+
+    <string name="help_privacy_title">隐私</string>
+    <string name="help_privacy_body">所有数据都不会离开手机。压缩全部在本机完成，应用没有网络权限；相册权限仅用于监测文件夹和载入最新图片。</string>
+
+    <string name="help_note_title">值得注意</string>
+    <string name="help_note_body">部分聊天软件在发送时会二次压缩图片，除非选择「原图」。因此这里节省的主要是你的存储空间和上传流量，以及可预期的结果。如需保留精确文件，请以「文件」方式发送。</string>
+
+    <!-- About -->
+    <string name="about_title">关于</string>
+    <string name="about_version">版本 %1$s</string>
+    <string name="about_package">包名 %1$s</string>
+    <string name="about_tagline">压缩截图便于分享，同时保持文字清晰可读。</string>
+    <string name="about_license">基于 MIT 许可证发布。</string>
+    <string name="about_source">源代码</string>
+    <string name="about_source_url">https://github.com/xudon9/Suotu</string>
+    <string name="about_built_with">使用 Kotlin 与 Jetpack Compose 构建。图像编码使用 Android 平台自带的 WebP 与 JPEG 编码器，未引入第三方图像库。</string>
+    <string name="about_no_network">本应用不申请任何网络权限。</string>
+    <string name="about_copy">复制信息</string>
+    <string name="about_copied">已复制</string>
+</resources>

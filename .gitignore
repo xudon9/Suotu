@@ -1,0 +1,24 @@
+# Gradle / build output
+.gradle/
+build/
+app/build/
+.kotlin/
+
+# Local machine configuration — contains absolute SDK paths, never commit.
+local.properties
+
+# Signing material. The release build here is signed with the debug key for
+# convenience; a real signing config must stay out of the repository.
+*.jks
+*.keystore
+keystore.properties
+signing.properties
+
+# IDE
+.idea/
+*.iml
+.DS_Store
+
+# Logs / scratch
+*.log
+captures/
