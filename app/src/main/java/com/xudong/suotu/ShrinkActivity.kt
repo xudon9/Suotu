@@ -316,7 +316,16 @@ class ShrinkActivity : AppCompatActivity() {
                                 is UiState.Ready -> {
                                     ResultCard(
                                         result = s.result,
+                                        crop = crop,
                                         onTapPreview = { fullscreen = true },
+                                        onSelect = { selection ->
+                                            // The drawing happened on the already
+                                            // cropped preview, so compose rather than
+                                            // replace — otherwise a second selection
+                                            // would jump somewhere unrelated.
+                                            crop = crop.compose(selection)
+                                        },
+                                        onClearSelection = { crop = CropRect.FULL },
                                     )
                                     Spacer(Modifier.height(12.dp))
                                     Row(
@@ -329,11 +338,13 @@ class ShrinkActivity : AppCompatActivity() {
                                             modifier = Modifier.weight(1f),
                                         ) { Text(stringResource(R.string.change)) }
 
+                                        // Handle-based editor stays available for
+                                        // precise tweaks after a rough draw.
                                         OutlinedButton(
                                             onClick = { cropping = true },
                                             enabled = sourceImage != null,
                                             modifier = Modifier.weight(1f),
-                                        ) { Text(stringResource(R.string.crop)) }
+                                        ) { Text(stringResource(R.string.adjust)) }
 
                                         Button(
                                             onClick = { sendResult(s.result) },
@@ -459,13 +470,20 @@ class ShrinkActivity : AppCompatActivity() {
     }
 
     @Composable
-    private fun ResultCard(result: ShrinkResult, onTapPreview: () -> Unit) {
+    private fun ResultCard(
+        result: ShrinkResult,
+        crop: CropRect,
+        onTapPreview: () -> Unit,
+        onSelect: (CropRect) -> Unit,
+        onClearSelection: () -> Unit,
+    ) {
         Card(Modifier.fillMaxWidth()) {
             Column {
                 val bitmap = remember(result) {
                     BitmapFactory.decodeByteArray(result.bytes, 0, result.bytes.size)
                 }
                 if (bitmap != null) {
+                    val lasso = rememberLassoState()
                     Image(
                         bitmap = bitmap.asImageBitmap(),
                         contentDescription = null,
@@ -473,17 +491,47 @@ class ShrinkActivity : AppCompatActivity() {
                             .fillMaxWidth()
                             .height(240.dp)
                             .background(MaterialTheme.colorScheme.previewBackdrop)
-                            .clickable { onTapPreview() },
+                            .clickable { onTapPreview() }
+                            // Draw-to-select sits directly on the preview: a drag picks
+                            // an area, a plain tap still opens the fullscreen viewer.
+                            .drawLasso(
+                                state = lasso,
+                                imageWidth = result.width,
+                                imageHeight = result.height,
+                                enabled = true,
+                                onSelected = onSelect,
+                            ),
                         contentScale = ContentScale.Fit,
                     )
                 }
 
                 Column(Modifier.padding(16.dp)) {
-                    Text(
-                        stringResource(R.string.preview_fullscreen),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            if (crop.isFullFrame) {
+                                stringResource(R.string.draw_hint)
+                            } else {
+                                stringResource(
+                                    R.string.draw_selected,
+                                    (result.sourceWidth * crop.width).toInt(),
+                                    (result.sourceHeight * crop.height).toInt(),
+                                )
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (crop.isFullFrame) {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            } else {
+                                MaterialTheme.colorScheme.primary
+                            },
+                            modifier = Modifier.weight(1f),
+                        )
+                        // Only offered when there is something to clear.
+                        if (!crop.isFullFrame) {
+                            TextButton(onClick = onClearSelection) {
+                                Text(stringResource(R.string.clear_selection))
+                            }
+                        }
+                    }
                     Spacer(Modifier.height(10.dp))
                     Row(Modifier.fillMaxWidth()) {
                         StatColumn(

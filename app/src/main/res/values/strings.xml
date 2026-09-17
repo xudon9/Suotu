@@ -147,4 +147,10 @@
     <string name="about_no_network">This app requests no network permission.</string>
     <string name="about_copy">Copy details</string>
     <string name="about_copied">Copied</string>
+
+    <!-- Draw-to-select -->
+    <string name="draw_hint">Draw on the image to select an area · tap to view full screen</string>
+    <string name="draw_selected">Selected %1$d × %2$d of the original</string>
+    <string name="clear_selection">Whole image</string>
+    <string name="adjust">Adjust</string>
 </resources>

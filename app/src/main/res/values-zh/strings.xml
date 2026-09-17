@@ -147,4 +147,10 @@
     <string name="about_no_network">本应用不申请任何网络权限。</string>
     <string name="about_copy">复制信息</string>
     <string name="about_copied">已复制</string>
+
+    <!-- Draw-to-select -->
+    <string name="draw_hint">在图片上画出要保留的区域 · 点击可全屏查看</string>
+    <string name="draw_selected">已选择原图的 %1$d × %2$d</string>
+    <string name="clear_selection">整张图片</string>
+    <string name="adjust">微调</string>
 </resources>
