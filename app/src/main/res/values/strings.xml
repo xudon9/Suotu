@@ -192,4 +192,14 @@
     <string name="annotate_text_ok">Add</string>
     <string name="annotate_clear_confirm">Remove all annotations?</string>
     <string name="remove">Remove</string>
+
+    <!-- Collapsible options -->
+    <string name="options">Options</string>
+    <string name="show_options">Show options</string>
+    <string name="hide_options">Hide options</string>
+    <string name="options_summary">%1$d px · %2$s · %3$s</string>
+    <string name="quality_summary_auto">auto q%1$d</string>
+    <string name="quality_summary_manual">q%1$d</string>
+    <string name="saved_percent">%1$d%% smaller</string>
+    <string name="send">Send</string>
 </resources>

@@ -192,4 +192,14 @@
     <string name="annotate_text_ok">添加</string>
     <string name="annotate_clear_confirm">删除所有标注？</string>
     <string name="remove">删除</string>
+
+    <!-- Collapsible options -->
+    <string name="options">选项</string>
+    <string name="show_options">展开选项</string>
+    <string name="hide_options">收起选项</string>
+    <string name="options_summary">%1$d 像素 · %2$s · %3$s</string>
+    <string name="quality_summary_auto">自动 q%1$d</string>
+    <string name="quality_summary_manual">q%1$d</string>
+    <string name="saved_percent">已省 %1$d%%</string>
+    <string name="send">发送</string>
 </resources>
