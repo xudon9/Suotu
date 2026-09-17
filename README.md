@@ -93,6 +93,7 @@ python3 tools/test_lasso_mapping.py   # letterbox-aware touch mapping
 python3 tools/test_replace_naming.py  # extension follows the encoded format
 python3 tools/test_annotation_geometry.py  # arrowheads + shape hit-testing
 python3 tools/test_color_picker.py     # HSV conversion, alpha, transparency
+python3 tools/test_gaussian_blur.py    # kernel, separability, edge clamping
 ```
 
 ## Caveat worth knowing

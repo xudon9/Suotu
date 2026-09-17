@@ -13,9 +13,6 @@ enum class AnnotationTool(val labelRes: Int) {
     CIRCLE(R.string.annotate_tool_circle),
     ARROW(R.string.annotate_tool_arrow),
     TEXT(R.string.annotate_tool_text),
-
-    /** Pixelate a region, for hiding phone numbers and faces. */
-    BLUR(R.string.annotate_tool_blur),
 }
 
 // AnnotationPalette lives in ColorPicker.kt, beside the picker that presents it.

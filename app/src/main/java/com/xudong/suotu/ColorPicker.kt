@@ -45,7 +45,19 @@ import androidx.compose.ui.unit.dp
  */
 const val COLOR_TRANSPARENT: Long = 0x00000000L
 
-fun Long.isTransparent(): Boolean = (this ushr 24) == 0L
+/**
+ * Sentinel meaning "paint with the blurred image" rather than with a colour.
+ *
+ * Bit 32 is set, which no 32-bit ARGB value can reach, so a blur paint can never be
+ * confused with a colour. Making blur a PAINT rather than a tool means every shape gets
+ * it for free: a brush stroke becomes a blurred smear, a circle becomes a blurred oval,
+ * and a rectangle reproduces what the old dedicated blur tool did.
+ */
+const val COLOR_BLUR: Long = 0x1_00000000L
+
+fun Long.isTransparent(): Boolean = this != COLOR_BLUR && (this ushr 24) == 0L
+
+fun Long.isBlur(): Boolean = this == COLOR_BLUR
 
 /** Quick presets, kept short: a long row of swatches slows down a two-second markup. */
 object AnnotationPalette {
@@ -73,11 +85,16 @@ fun ColorPickerDialog(
     title: String,
     initial: Long,
     allowTransparent: Boolean,
+    allowBlur: Boolean = false,
     onDismiss: () -> Unit,
     onPick: (Long) -> Unit,
 ) {
     // Seed HSV from the incoming colour so reopening the picker does not reset it.
-    val seed = if (initial.isTransparent()) AnnotationPalette.default else initial
+    val seed = if (initial.isTransparent() || initial.isBlur()) {
+        AnnotationPalette.default
+    } else {
+        initial
+    }
     val seedHsv = remember(seed) { rgbToHsv(seed) }
 
     var hue by remember { mutableFloatStateOf(seedHsv[0]) }
@@ -87,11 +104,12 @@ fun ColorPickerDialog(
         mutableFloatStateOf(if (initial.isTransparent()) 1f else ((initial ushr 24) / 255f))
     }
     var transparent by remember { mutableStateOf(initial.isTransparent()) }
+    var blurPaint by remember { mutableStateOf(initial.isBlur()) }
 
-    val current = if (transparent) {
-        COLOR_TRANSPARENT
-    } else {
-        hsvToRgb(hue, sat, value, alpha)
+    val current = when {
+        blurPaint -> COLOR_BLUR
+        transparent -> COLOR_TRANSPARENT
+        else -> hsvToRgb(hue, sat, value, alpha)
     }
 
     AlertDialog(
@@ -104,10 +122,11 @@ fun ColorPickerDialog(
                     AnnotationPalette.colors.forEach { c ->
                         Swatch(
                             color = c,
-                            selected = !transparent && current or 0xFF000000L ==
-                                c or 0xFF000000L,
+                            selected = !transparent && !blurPaint &&
+                                current or 0xFF000000L == c or 0xFF000000L,
                             onClick = {
                                 transparent = false
+                                blurPaint = false
                                 val hsv = rgbToHsv(c)
                                 hue = hsv[0]; sat = hsv[1]; value = hsv[2]
                             },
@@ -115,8 +134,20 @@ fun ColorPickerDialog(
                     }
                     if (allowTransparent) {
                         TransparentSwatch(
-                            selected = transparent,
-                            onClick = { transparent = true },
+                            selected = transparent && !blurPaint,
+                            onClick = {
+                                transparent = true
+                                blurPaint = false
+                            },
+                        )
+                    }
+                    if (allowBlur) {
+                        BlurSwatch(
+                            selected = blurPaint,
+                            onClick = {
+                                blurPaint = true
+                                transparent = false
+                            },
                         )
                     }
                 }
@@ -222,7 +253,21 @@ fun ColorPickerDialog(
                             .size(48.dp, 28.dp)
                             .clip(RoundedCornerShape(6.dp))
                             .checkerboard()
-                            .background(Color(current.toInt()))
+                            .then(
+                                if (current.isBlur()) {
+                                    Modifier.background(
+                                        Brush.linearGradient(
+                                            listOf(
+                                                Color(0xFF9E9E9E),
+                                                Color(0xFFE0E0E0),
+                                                Color(0xFF757575),
+                                            )
+                                        )
+                                    )
+                                } else {
+                                    Modifier.background(Color(current.toInt()))
+                                }
+                            )
                             .border(
                                 1.dp,
                                 MaterialTheme.colorScheme.outlineVariant,
@@ -231,10 +276,10 @@ fun ColorPickerDialog(
                     )
                     Spacer(Modifier.size(10.dp))
                     Text(
-                        if (transparent) {
-                            stringResource(R.string.color_none)
-                        } else {
-                            "#%08X".format(current)
+                        when {
+                            blurPaint -> stringResource(R.string.color_blur)
+                            transparent -> stringResource(R.string.color_none)
+                            else -> "#%08X".format(current)
                         },
                         style = MaterialTheme.typography.bodySmall,
                     )
@@ -335,7 +380,35 @@ private fun TransparentSwatch(selected: Boolean, onClick: () -> Unit) {
     }
 }
 
-/** Grey checkerboard, the conventional way to show transparency. */
+/** "Paint with blur", drawn as a soft gradient to suggest smearing. */
+@Composable
+private fun BlurSwatch(selected: Boolean, onClick: () -> Unit) {
+    Box(
+        Modifier
+            .size(if (selected) 34.dp else 28.dp)
+            .clip(RoundedCornerShape(50))
+            .background(
+                Brush.linearGradient(
+                    listOf(
+                        Color(0xFF9E9E9E),
+                        Color(0xFFE0E0E0),
+                        Color(0xFF757575),
+                    )
+                )
+            )
+            .border(
+                width = if (selected) 3.dp else 1.dp,
+                color = if (selected) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.outlineVariant
+                },
+                shape = RoundedCornerShape(50),
+            )
+            .clickable(onClick = onClick),
+    )
+}
+
 private fun Modifier.checkerboard(): Modifier = this.background(Color(0xFFDDDDDD))
 
 /** @return [hue 0..360, saturation 0..1, value 0..1] */

@@ -224,4 +224,5 @@
     <string name="color_none">None</string>
     <string name="color_preview">Preview</string>
     <string name="ok">OK</string>
+    <string name="color_blur">Blur</string>
 </resources>

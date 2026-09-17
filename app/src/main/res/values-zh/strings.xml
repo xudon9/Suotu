@@ -224,4 +224,5 @@
     <string name="color_none">无</string>
     <string name="color_preview">预览</string>
     <string name="ok">确定</string>
+    <string name="color_blur">模糊</string>
 </resources>

@@ -221,11 +221,6 @@ fun AnnotationEditor(
                                             Annotation.Arrow(start, last, c, t)
                                         } else null
 
-                                    AnnotationTool.BLUR ->
-                                        if (isDeliberateDrag(start, last)) {
-                                            Annotation.Blur(start, last, t)
-                                        } else null
-
                                     // Text is placed by tap, handled above.
                                     AnnotationTool.TEXT -> null
                                 }
@@ -335,8 +330,8 @@ fun AnnotationEditor(
 
         Spacer(Modifier.height(8.dp))
 
-        // Colour. Blur has none; shapes have TWO (stroke and fill).
-        if (tool != AnnotationTool.BLUR) {
+        // Colour. Shapes have TWO (stroke and fill); everything else has one.
+        run {
             val hasFill = tool == AnnotationTool.RECT || tool == AnnotationTool.CIRCLE
             Row(
                 Modifier.fillMaxWidth(),
@@ -420,6 +415,10 @@ fun AnnotationEditor(
             // only offered where it still leaves something to see.
             allowTransparent = target == PickTarget.FILL ||
                 !fillColor.isTransparent(),
+            // Blur paints with the image itself, so it only makes sense where there is
+            // an area or a stroke to fill. An arrow or text drawn in blur would be
+            // invisible against what it is annotating.
+            allowBlur = tool != AnnotationTool.ARROW && tool != AnnotationTool.TEXT,
             onDismiss = { picking = null },
             onPick = { picked ->
                 if (target == PickTarget.STROKE) color = picked else fillColor = picked
@@ -544,7 +543,6 @@ private fun buildDraft(
         AnnotationTool.RECT -> Annotation.Rect(s, e, color, thickness, fill)
         AnnotationTool.CIRCLE -> Annotation.Ellipse(s, e, color, thickness, fill)
         AnnotationTool.ARROW -> Annotation.Arrow(s, e, color, thickness)
-        AnnotationTool.BLUR -> Annotation.Blur(s, e, thickness)
         else -> null
     }
 }

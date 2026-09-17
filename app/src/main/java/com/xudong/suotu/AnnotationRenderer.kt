@@ -42,22 +42,72 @@ object AnnotationRenderer {
         width: Int,
         height: Int,
         sourceForBlur: Bitmap? = null,
+        fastPreview: Boolean = false,
     ) {
         // Scale strokes by width only: using the diagonal or height would make the same
         // annotation visually thicker on a tall screenshot than a wide one.
         val scale = width.toFloat()
 
+        // Blurred copies are cached per radius: several blur strokes at the same slider
+        // setting are common, and each blur pass is the expensive part of a render.
+        val blurCache = mutableMapOf<Int, Bitmap>()
+
+        fun blurred(thickness: Float): Bitmap? {
+            val src = sourceForBlur ?: return null
+            var radius = GaussianBlur.radiusFor(thickness, width)
+            if (fastPreview) radius = GaussianBlur.previewRadius(radius)
+            val key = radius.toInt()
+            return blurCache.getOrPut(key) { GaussianBlur.blur(src, radius) }
+        }
+
         items.forEach { item ->
             when (item) {
-                is Annotation.Freehand -> drawFreehand(canvas, item, width, height, scale)
-                is Annotation.Rect -> drawRect(canvas, item, width, height, scale)
-                is Annotation.Ellipse -> drawEllipse(canvas, item, width, height, scale)
+                is Annotation.Freehand ->
+                    drawFreehand(canvas, item, width, height, scale, ::blurred)
+
+                is Annotation.Rect ->
+                    drawRect(canvas, item, width, height, scale, ::blurred)
+
+                is Annotation.Ellipse ->
+                    drawEllipse(canvas, item, width, height, scale, ::blurred)
+
                 is Annotation.Arrow -> drawArrow(canvas, item, width, height, scale)
                 is Annotation.Text -> drawText(canvas, item, width, height, scale)
-                is Annotation.Blur ->
-                    drawBlur(canvas, item, width, height, sourceForBlur, item.thickness)
+
+                // The dedicated blur tool is now just a rectangle painted with blur.
+                is Annotation.Blur -> drawRect(
+                    canvas,
+                    Annotation.Rect(
+                        item.start, item.end,
+                        color = COLOR_TRANSPARENT,
+                        thickness = item.thickness,
+                        fillColor = COLOR_BLUR,
+                    ),
+                    width, height, scale, ::blurred,
+                )
             }
         }
+
+        blurCache.values.forEach { if (it !== sourceForBlur) it.recycle() }
+    }
+
+    /**
+     * Paint [path] with pixels taken from [blurredSource].
+     *
+     * Clipping to the path and drawing the blurred bitmap is what lets ANY shape act as
+     * a blur: the shape decides where, the bitmap decides what. Drawing a blurred copy
+     * of the whole image and masking it also keeps the blur continuous across shapes,
+     * whereas blurring each region separately would show seams at the edges.
+     */
+    private fun paintWithBlur(
+        canvas: Canvas,
+        blurredSource: Bitmap,
+        path: Path,
+    ) {
+        val save = canvas.save()
+        canvas.clipPath(path)
+        canvas.drawBitmap(blurredSource, 0f, 0f, null)
+        canvas.restoreToCount(save)
     }
 
     private fun strokePaint(color: Long, strokeWidth: Float) = Paint().apply {
@@ -75,16 +125,28 @@ object AnnotationRenderer {
         w: Int,
         h: Int,
         scale: Float,
+        blurred: (Float) -> Bitmap?,
     ) {
         if (item.points.size < 2) return
-        val paint = strokePaint(item.color, item.thickness * scale)
         val path = Path()
         item.points.forEachIndexed { i, p ->
             val x = p.x * w
             val y = p.y * h
             if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
         }
-        canvas.drawPath(path, paint)
+
+        if (item.color.isBlur()) {
+            // A stroke has no interior to clip, so the line is converted to an outline
+            // path of its own width and that region is painted with blurred pixels.
+            val stroked = Path()
+            strokePaint(0xFF000000L, item.thickness * scale)
+                .getFillPath(path, stroked)
+            blurred(item.thickness)?.let { paintWithBlur(canvas, it, stroked) }
+            return
+        }
+
+        if (item.color.isTransparent()) return
+        canvas.drawPath(path, strokePaint(item.color, item.thickness * scale))
     }
 
     private fun fillPaint(color: Long) = Paint().apply {
@@ -99,20 +161,30 @@ object AnnotationRenderer {
         w: Int,
         h: Int,
         scale: Float,
+        blurred: (Float) -> Bitmap?,
     ) {
         val b = item.bounds()
+        val l = b.left * w
+        val t = b.top * h
+        val r = b.right * w
+        val bo = b.bottom * h
+
         // Fill first so the stroke sits on top of it, as any drawing tool would.
-        if (!item.fillColor.isTransparent()) {
-            canvas.drawRect(
-                b.left * w, b.top * h, b.right * w, b.bottom * h,
-                fillPaint(item.fillColor),
-            )
+        if (item.fillColor.isBlur()) {
+            val p = Path().apply { addRect(l, t, r, bo, Path.Direction.CW) }
+            blurred(item.thickness)?.let { paintWithBlur(canvas, it, p) }
+        } else if (!item.fillColor.isTransparent()) {
+            canvas.drawRect(l, t, r, bo, fillPaint(item.fillColor))
         }
-        if (!item.color.isTransparent()) {
-            canvas.drawRect(
-                b.left * w, b.top * h, b.right * w, b.bottom * h,
-                strokePaint(item.color, item.thickness * scale),
-            )
+
+        if (item.color.isBlur()) {
+            val outline = Path().apply { addRect(l, t, r, bo, Path.Direction.CW) }
+            val stroked = Path()
+            strokePaint(0xFF000000L, item.thickness * scale)
+                .getFillPath(outline, stroked)
+            blurred(item.thickness)?.let { paintWithBlur(canvas, it, stroked) }
+        } else if (!item.color.isTransparent()) {
+            canvas.drawRect(l, t, r, bo, strokePaint(item.color, item.thickness * scale))
         }
     }
 
@@ -122,13 +194,25 @@ object AnnotationRenderer {
         w: Int,
         h: Int,
         scale: Float,
+        blurred: (Float) -> Bitmap?,
     ) {
         val b = item.bounds()
         val oval = RectF(b.left * w, b.top * h, b.right * w, b.bottom * h)
-        if (!item.fillColor.isTransparent()) {
+
+        if (item.fillColor.isBlur()) {
+            val p = Path().apply { addOval(oval, Path.Direction.CW) }
+            blurred(item.thickness)?.let { paintWithBlur(canvas, it, p) }
+        } else if (!item.fillColor.isTransparent()) {
             canvas.drawOval(oval, fillPaint(item.fillColor))
         }
-        if (!item.color.isTransparent()) {
+
+        if (item.color.isBlur()) {
+            val outline = Path().apply { addOval(oval, Path.Direction.CW) }
+            val stroked = Path()
+            strokePaint(0xFF000000L, item.thickness * scale)
+                .getFillPath(outline, stroked)
+            blurred(item.thickness)?.let { paintWithBlur(canvas, it, stroked) }
+        } else if (!item.color.isTransparent()) {
             canvas.drawOval(oval, strokePaint(item.color, item.thickness * scale))
         }
     }
@@ -154,6 +238,9 @@ object AnnotationRenderer {
 
         val len = hypot(x2 - x1, y2 - y1)
         if (len < 1f) return
+        // Blur is not offered for arrows: a blurred arrow is invisible against the
+        // thing it is pointing at. Transparent likewise draws nothing.
+        if (item.color.isTransparent() || item.color.isBlur()) return
 
         val headLen = (strokeWidth * ARROWHEAD_SCALE).coerceAtMost(len * 0.5f)
         val angle = atan2(y2 - y1, x2 - x1)
@@ -201,6 +288,7 @@ object AnnotationRenderer {
         scale: Float,
     ) {
         if (item.text.isEmpty()) return
+        if (item.color.isTransparent() || item.color.isBlur()) return
         val size = AnnotationThickness.textSizeFor(item.thickness) * scale
         val x = item.at.x * w
         val y = item.at.y * h

@@ -626,12 +626,13 @@ class ShrinkActivity : AppCompatActivity() {
         onOverwrite: () -> Unit,
         onSaveAsNew: () -> Unit,
     ) {
+        // No manual offset. An earlier version nudged the menu up by a hardcoded
+        // -150dp, which only looked right for one menu height on one screen; Compose
+        // already flips a DropdownMenu upwards when there is no room below, and anchors
+        // it to this Box — which is the icon itself.
         DropdownMenu(
             expanded = expanded,
             onDismissRequest = onDismiss,
-            // Negative y lifts the menu above the bar, so it does not cover the
-            // action the user just tapped.
-            offset = DpOffset(0.dp, (-150).dp),
         ) {
             DropdownMenuItem(
                 enabled = canOverwrite,
