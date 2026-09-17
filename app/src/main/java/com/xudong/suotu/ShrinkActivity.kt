@@ -31,6 +31,8 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -57,6 +59,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
@@ -121,13 +124,18 @@ class ShrinkActivity : AppCompatActivity() {
                 var width by remember { mutableIntStateOf(settings.outputWidth) }
                 var policy by remember { mutableStateOf(settings.formatPolicy) }
                 var manualQuality by remember { mutableStateOf(settings.manualQuality) }
-                var optionsExpanded by remember { mutableStateOf(false) }
+                // Expanded when the app is opened cold with nothing loaded — there is
+                // room, and the controls are what the screen is for at that point. As
+                // soon as an image arrives the preview takes priority, so it folds.
+                var optionsExpanded by remember { mutableStateOf(shared == null) }
+                var foldedForImage by remember { mutableStateOf(false) }
                 var source by remember { mutableStateOf(shared) }
                 var manualPick by remember { mutableStateOf(false) }
                 var crop by remember { mutableStateOf(CropRect.FULL) }
                 var cropping by remember { mutableStateOf(false) }
                 var fullscreen by remember { mutableStateOf(false) }
                 var confirmReplace by remember { mutableStateOf(false) }
+                var saveMenuOpen by remember { mutableStateOf(false) }
                 var annotating by remember { mutableStateOf(false) }
                 var annotations by remember { mutableStateOf(AnnotationState()) }
                 var toast by remember { mutableStateOf<String?>(null) }
@@ -190,6 +198,16 @@ class ShrinkActivity : AppCompatActivity() {
                         state !is UiState.Ready -> state = UiState.Empty(
                             getString(R.string.no_match_recent, formatDuration(window))
                         )
+                    }
+                }
+
+                // Fold the options once an image is actually loaded, but only the FIRST
+                // time: re-folding on every re-encode would fight the user every time
+                // they moved a slider.
+                LaunchedEffect(source) {
+                    if (source != null && !foldedForImage) {
+                        foldedForImage = true
+                        optionsExpanded = false
                     }
                 }
 
@@ -275,6 +293,7 @@ class ShrinkActivity : AppCompatActivity() {
                         canReplace = source?.let {
                             OriginalReplacer.isMediaStoreUri(it)
                         } == true,
+                        saveMenuOpen = saveMenuOpen,
                         onOptionsExpandedChange = { optionsExpanded = it },
                         onWidthChange = { width = it },
                         onWidthSettled = { settings.outputWidth = width },
@@ -289,7 +308,20 @@ class ShrinkActivity : AppCompatActivity() {
                         onPick = { picker.launchImage() },
                         onCrop = { cropping = true },
                         onAnnotate = { annotating = true },
-                        onReplace = { confirmReplace = true },
+                        onReplace = {
+                            saveMenuOpen = false
+                            confirmReplace = true
+                        },
+                        onSaveMenu = { saveMenuOpen = true },
+                        onSaveMenuDismiss = { saveMenuOpen = false },
+                        onSaveAsNew = {
+                            saveMenuOpen = false
+                            (state as? UiState.Ready)?.let { ready ->
+                                lifecycleScope.launch {
+                                    toast = saveAsNew(ready.result)
+                                }
+                            }
+                        },
                         onSend = { result -> sendResult(result) },
                         onTapPreview = { fullscreen = true },
                         onSelect = { selection -> crop = crop.compose(selection) },
@@ -428,6 +460,7 @@ class ShrinkActivity : AppCompatActivity() {
         optionsExpanded: Boolean,
         canAnnotate: Boolean,
         canReplace: Boolean,
+        saveMenuOpen: Boolean,
         onOptionsExpandedChange: (Boolean) -> Unit,
         onWidthChange: (Int) -> Unit,
         onWidthSettled: () -> Unit,
@@ -437,6 +470,9 @@ class ShrinkActivity : AppCompatActivity() {
         onCrop: () -> Unit,
         onAnnotate: () -> Unit,
         onReplace: () -> Unit,
+        onSaveMenu: () -> Unit,
+        onSaveMenuDismiss: () -> Unit,
+        onSaveAsNew: () -> Unit,
         onSend: (ShrinkResult) -> Unit,
         onTapPreview: () -> Unit,
         onSelect: (CropRect) -> Unit,
@@ -546,12 +582,22 @@ class ShrinkActivity : AppCompatActivity() {
                             onClick = onAnnotate,
                             enabled = canAnnotate,
                         )
-                        IconAction(
-                            iconRes = R.drawable.ic_action_replace,
-                            labelRes = R.string.replace_original,
-                            onClick = onReplace,
-                            enabled = canReplace,
-                        )
+                        // Save opens a small menu: overwriting is destructive and
+                        // should not be one tap away from an adjacent button.
+                        Box {
+                            IconAction(
+                                iconRes = R.drawable.ic_action_save,
+                                labelRes = R.string.save,
+                                onClick = onSaveMenu,
+                            )
+                            SaveMenu(
+                                expanded = saveMenuOpen,
+                                canOverwrite = canReplace,
+                                onDismiss = onSaveMenuDismiss,
+                                onOverwrite = onReplace,
+                                onSaveAsNew = onSaveAsNew,
+                            )
+                        }
                         IconAction(
                             iconRes = R.drawable.ic_action_send,
                             labelRes = R.string.send,
@@ -562,6 +608,78 @@ class ShrinkActivity : AppCompatActivity() {
                     }
                 }
             }
+        }
+    }
+
+    /**
+     * Two-option menu anchored above the Save action.
+     *
+     * Overwriting is irreversible, so it is deliberately behind this menu rather than
+     * being its own button in the bar, where a mis-tap on a neighbouring icon could
+     * destroy the original. Each option states its consequence.
+     */
+    @Composable
+    private fun SaveMenu(
+        expanded: Boolean,
+        canOverwrite: Boolean,
+        onDismiss: () -> Unit,
+        onOverwrite: () -> Unit,
+        onSaveAsNew: () -> Unit,
+    ) {
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = onDismiss,
+            // Negative y lifts the menu above the bar, so it does not cover the
+            // action the user just tapped.
+            offset = DpOffset(0.dp, (-150).dp),
+        ) {
+            DropdownMenuItem(
+                enabled = canOverwrite,
+                onClick = onOverwrite,
+                text = {
+                    Column {
+                        Text(stringResource(R.string.save_overwrite))
+                        Text(
+                            stringResource(R.string.save_overwrite_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                },
+                leadingIcon = {
+                    Icon(
+                        imageVector = ImageVector.vectorResource(
+                            R.drawable.ic_action_replace
+                        ),
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                    )
+                },
+            )
+            DropdownMenuItem(
+                onClick = onSaveAsNew,
+                text = {
+                    Column {
+                        Text(stringResource(R.string.save_as_new))
+                        Text(
+                            stringResource(
+                                R.string.save_as_new_desc, MediaStoreSaver.ALBUM
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                },
+                leadingIcon = {
+                    Icon(
+                        imageVector = ImageVector.vectorResource(
+                            R.drawable.ic_action_save
+                        ),
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                    )
+                },
+            )
         }
     }
 
@@ -755,6 +873,18 @@ class ShrinkActivity : AppCompatActivity() {
             Toast.makeText(this@ShrinkActivity, message, Toast.LENGTH_SHORT).show()
         }
     }
+
+    /** Write a NEW file into the Suotu album, leaving the original untouched. */
+    private suspend fun saveAsNew(result: ShrinkResult): String =
+        withContext(Dispatchers.IO) {
+            val base = "Suotu_${System.currentTimeMillis()}"
+            val uri = MediaStoreSaver.save(this@ShrinkActivity, result, base)
+            if (uri != null) {
+                getString(R.string.saved_as_new, MediaStoreSaver.ALBUM)
+            } else {
+                getString(R.string.save_as_new_failed)
+            }
+        }
 
     private fun sendResult(result: ShrinkResult) {
         val file = ShrinkEngine.writeToCache(this, result)

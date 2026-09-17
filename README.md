@@ -92,6 +92,7 @@ python3 tools/test_crop_layout.py     # crop action row stays on screen
 python3 tools/test_lasso_mapping.py   # letterbox-aware touch mapping
 python3 tools/test_replace_naming.py  # extension follows the encoded format
 python3 tools/test_annotation_geometry.py  # arrowheads + shape hit-testing
+python3 tools/test_color_picker.py     # HSV conversion, alpha, transparency
 ```
 
 ## Caveat worth knowing

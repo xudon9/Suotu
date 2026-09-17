@@ -18,24 +18,7 @@ enum class AnnotationTool(val labelRes: Int) {
     BLUR(R.string.annotate_tool_blur),
 }
 
-/**
- * Palette offered for annotations, as 0xAARRGGBB.
- *
- * Red first because it is the overwhelmingly common choice for pointing at something,
- * and the set stays small: a long palette turns a two-second markup into a decision.
- */
-object AnnotationPalette {
-    val colors = listOf(
-        0xFFE53935L, // red
-        0xFFFFB300L, // amber
-        0xFF43A047L, // green
-        0xFF1E88E5L, // blue
-        0xFF000000L, // black
-        0xFFFFFFFFL, // white
-    )
-
-    val default = colors.first()
-}
+// AnnotationPalette lives in ColorPicker.kt, beside the picker that presents it.
 
 /** Stroke widths, as a fraction of image width so they scale with the image. */
 object AnnotationThickness {
@@ -82,20 +65,30 @@ sealed interface Annotation {
         }
     }
 
+    /**
+     * Outlined and/or filled rectangle.
+     *
+     * [color] is the stroke and [fillColor] the interior; either may be transparent, so
+     * the same type covers an outline, a solid block, and both together. A solid block
+     * is genuinely useful — it is the simplest way to cover something completely.
+     */
     data class Rect(
         val start: Offset,
         val end: Offset,
         override val color: Long,
         override val thickness: Float,
+        val fillColor: Long = COLOR_TRANSPARENT,
     ) : Annotation {
         override fun bounds() = normalisedBounds(start, end)
     }
 
+    /** Outlined and/or filled ellipse. See [Rect] for the two-colour rationale. */
     data class Ellipse(
         val start: Offset,
         val end: Offset,
         override val color: Long,
         override val thickness: Float,
+        val fillColor: Long = COLOR_TRANSPARENT,
     ) : Annotation {
         override fun bounds() = normalisedBounds(start, end)
     }
@@ -127,12 +120,18 @@ sealed interface Annotation {
         }
     }
 
-    /** Pixelated region. Carries no colour, but keeps the interface uniform. */
+    /**
+     * Pixelated region.
+     *
+     * [thickness] drives the mosaic block size, so the same slider that sets stroke
+     * width also sets coarseness — a visible control that did nothing for this tool was
+     * simply confusing. Colour is unused but kept for a uniform interface.
+     */
     data class Blur(
         val start: Offset,
         val end: Offset,
+        override val thickness: Float,
         override val color: Long = 0,
-        override val thickness: Float = 0f,
     ) : Annotation {
         override fun bounds() = normalisedBounds(start, end)
     }
@@ -201,9 +200,21 @@ data class AnnotationState(
             distanceToSegment(p, item.from, item.to) < slop
 
         // Outlined shapes: near the border, so the interior stays available for
-        // selecting whatever is underneath.
-        is Annotation.Rect -> nearRectBorder(item.bounds(), p, slop)
-        is Annotation.Ellipse -> nearRectBorder(item.bounds(), p, slop)
+        // selecting whatever is underneath — unless the shape is FILLED, in which case
+        // it visually occupies its interior and should be selectable there too.
+        is Annotation.Rect ->
+            if (item.fillColor.isTransparent()) {
+                nearRectBorder(item.bounds(), p, slop)
+            } else {
+                contains(item.bounds(), p)
+            }
+
+        is Annotation.Ellipse ->
+            if (item.fillColor.isTransparent()) {
+                nearRectBorder(item.bounds(), p, slop)
+            } else {
+                contains(item.bounds(), p)
+            }
 
         // Filled/opaque items: anywhere inside.
         is Annotation.Blur -> contains(item.bounds(), p)

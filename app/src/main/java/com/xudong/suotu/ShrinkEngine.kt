@@ -41,6 +41,17 @@ data class ShrinkResult(
 enum class EncodedFormat(val mimeType: String, val extension: String, val label: String) {
     JPEG("image/jpeg", "jpg", "JPEG"),
     WEBP("image/webp", "webp", "WebP"),
+
+    /**
+     * Lossless. Quality is meaningless here, so the search is skipped entirely — see
+     * [ShrinkEngine.searchQuality]. Useful when the recipient must receive pixel-exact
+     * text, at a cost of several times the bytes.
+     */
+    PNG("image/png", "png", "PNG"),
+    ;
+
+    /** True when the encoder ignores the quality parameter. */
+    val isLossless: Boolean get() = this == PNG
 }
 
 /**
@@ -127,13 +138,15 @@ object ShrinkEngine {
         if (scaled !== cropped) cropped.recycle()
 
         val candidates = when (formatPolicy) {
+            FormatPolicy.WEBP_ONLY -> listOf(EncodedFormat.WEBP)
             FormatPolicy.JPEG_ONLY -> listOf(EncodedFormat.JPEG)
+            FormatPolicy.PNG_ONLY -> listOf(EncodedFormat.PNG)
             FormatPolicy.AUTO -> listOf(EncodedFormat.WEBP, EncodedFormat.JPEG)
         }
 
         val best = candidates
             .map { format ->
-                if (forcedQuality != null) {
+                if (forcedQuality != null && !format.isLossless) {
                     // Manual override: encode exactly what was asked for. The budget is
                     // deliberately not enforced here — the user chose this quality, and
                     // silently overriding it would make the slider a lie.
@@ -235,6 +248,11 @@ object ShrinkEngine {
      * ~6 encodes of an 800px image is a few hundred milliseconds.
      */
     private fun searchQuality(bitmap: Bitmap, format: EncodedFormat, budget: Int): Encoded {
+        // Lossless formats ignore quality, so searching would encode the same bytes
+        // six times over.
+        if (format.isLossless) {
+            return Encoded(encode(bitmap, format, 100), 100, format)
+        }
         var low = MIN_QUALITY
         var high = MAX_QUALITY
         var bestFitting: Encoded? = null
@@ -278,6 +296,8 @@ object ShrinkEngine {
                     @Suppress("DEPRECATION")
                     Bitmap.CompressFormat.WEBP
                 }
+
+            EncodedFormat.PNG -> Bitmap.CompressFormat.PNG
         }
         bitmap.compress(compressFormat, quality, out)
         return out.toByteArray()

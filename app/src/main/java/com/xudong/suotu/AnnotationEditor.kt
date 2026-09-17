@@ -72,6 +72,10 @@ fun AnnotationEditor(
 ) {
     var tool by remember { mutableStateOf(AnnotationTool.BRUSH) }
     var color by remember { mutableStateOf(AnnotationPalette.default) }
+    // Transparent by default: an outlined shape is the common case, and a filled one
+    // would hide whatever it is pointing at.
+    var fillColor by remember { mutableStateOf(COLOR_TRANSPARENT) }
+    var picking by remember { mutableStateOf<PickTarget?>(null) }
     var thickness by remember { mutableStateOf(AnnotationThickness.DEFAULT) }
     var confirmClear by remember { mutableStateOf(false) }
 
@@ -88,6 +92,7 @@ fun AnnotationEditor(
     val onStateChangeRef = rememberUpdatedState(onStateChange)
     val toolRef = rememberUpdatedState(tool)
     val colorRef = rememberUpdatedState(color)
+    val fillRef = rememberUpdatedState(fillColor)
     val thicknessRef = rememberUpdatedState(thickness)
 
     // The bitmap the blur tool samples, so the live preview shows real mosaic pixels.
@@ -176,6 +181,7 @@ fun AnnotationEditor(
                                 val current = stateRef.value
                                 val c = colorRef.value
                                 val t = thicknessRef.value
+                                val f = fillRef.value
 
                                 // A tap (no drag) selects instead of drawing, which is
                                 // how the object model stays reachable after the fact.
@@ -202,12 +208,12 @@ fun AnnotationEditor(
 
                                     AnnotationTool.RECT ->
                                         if (isDeliberateDrag(start, last)) {
-                                            Annotation.Rect(start, last, c, t)
+                                            Annotation.Rect(start, last, c, t, f)
                                         } else null
 
                                     AnnotationTool.CIRCLE ->
                                         if (isDeliberateDrag(start, last)) {
-                                            Annotation.Ellipse(start, last, c, t)
+                                            Annotation.Ellipse(start, last, c, t, f)
                                         } else null
 
                                     AnnotationTool.ARROW ->
@@ -217,7 +223,7 @@ fun AnnotationEditor(
 
                                     AnnotationTool.BLUR ->
                                         if (isDeliberateDrag(start, last)) {
-                                            Annotation.Blur(start, last)
+                                            Annotation.Blur(start, last, t)
                                         } else null
 
                                     // Text is placed by tap, handled above.
@@ -259,6 +265,7 @@ fun AnnotationEditor(
                                     draftEnd,
                                     colorRef.value,
                                     thicknessRef.value,
+                                    fillRef.value,
                                 )
                                 if (draft != null) {
                                     AnnotationRenderer.render(
@@ -328,28 +335,24 @@ fun AnnotationEditor(
 
         Spacer(Modifier.height(8.dp))
 
-        // Colour, hidden for blur which has no colour.
+        // Colour. Blur has none; shapes have TWO (stroke and fill).
         if (tool != AnnotationTool.BLUR) {
+            val hasFill = tool == AnnotationTool.RECT || tool == AnnotationTool.CIRCLE
             Row(
                 Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                AnnotationPalette.colors.forEach { c ->
-                    Box(
-                        Modifier
-                            .size(if (c == color) 34.dp else 28.dp)
-                            .background(Color(c.toInt()), CircleShape)
-                            .border(
-                                width = if (c == color) 3.dp else 1.dp,
-                                color = if (c == color) {
-                                    MaterialTheme.colorScheme.primary
-                                } else {
-                                    MaterialTheme.colorScheme.outlineVariant
-                                },
-                                shape = CircleShape,
-                            )
-                            .clickable { color = c },
+                ColorButton(
+                    labelRes = R.string.color_stroke,
+                    color = color,
+                    onClick = { picking = PickTarget.STROKE },
+                )
+                if (hasFill) {
+                    ColorButton(
+                        labelRes = R.string.color_fill,
+                        color = fillColor,
+                        onClick = { picking = PickTarget.FILL },
                     )
                 }
             }
@@ -403,6 +406,26 @@ fun AnnotationEditor(
                 Text(stringResource(R.string.annotate_apply))
             }
         }
+    }
+
+    // Colour picker, shared by the stroke and fill wells.
+    picking?.let { target ->
+        ColorPickerDialog(
+            title = stringResource(
+                if (target == PickTarget.STROKE) R.string.color_pick_stroke
+                else R.string.color_pick_fill
+            ),
+            initial = if (target == PickTarget.STROKE) color else fillColor,
+            // A shape with no stroke AND no fill would be invisible, so transparency is
+            // only offered where it still leaves something to see.
+            allowTransparent = target == PickTarget.FILL ||
+                !fillColor.isTransparent(),
+            onDismiss = { picking = null },
+            onPick = { picked ->
+                if (target == PickTarget.STROKE) color = picked else fillColor = picked
+                picking = null
+            },
+        )
     }
 
     if (confirmClear) {
@@ -459,6 +482,47 @@ fun AnnotationEditor(
     }
 }
 
+/** Which colour the picker is currently editing. */
+private enum class PickTarget { STROKE, FILL }
+
+/**
+ * Colour well with a label, opening the full picker.
+ *
+ * Shows a checkerboard when the colour is transparent, so "no fill" is visibly a state
+ * rather than looking like a rendering glitch.
+ */
+@Composable
+private fun ColorButton(labelRes: Int, color: Long, onClick: () -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.clickable(onClick = onClick),
+    ) {
+        Text(
+            stringResource(labelRes),
+            style = MaterialTheme.typography.bodySmall,
+        )
+        Spacer(Modifier.size(6.dp))
+        Box(
+            Modifier
+                .size(30.dp)
+                .background(
+                    if (color.isTransparent()) Color(0xFFDDDDDD) else Color(color.toInt()),
+                    CircleShape,
+                )
+                .border(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                    shape = CircleShape,
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (color.isTransparent()) {
+                Text("\u2571", style = MaterialTheme.typography.bodyMedium, color = Color.Red)
+            }
+        }
+    }
+}
+
 /** The in-flight gesture as a renderable annotation, or null if there is nothing yet. */
 private fun buildDraft(
     tool: AnnotationTool,
@@ -467,6 +531,7 @@ private fun buildDraft(
     end: Offset?,
     color: Long,
     thickness: Float,
+    fill: Long,
 ): Annotation? {
     if (tool == AnnotationTool.BRUSH) {
         return if (points.size >= 2) {
@@ -476,10 +541,10 @@ private fun buildDraft(
     val s = start ?: return null
     val e = end ?: return null
     return when (tool) {
-        AnnotationTool.RECT -> Annotation.Rect(s, e, color, thickness)
-        AnnotationTool.CIRCLE -> Annotation.Ellipse(s, e, color, thickness)
+        AnnotationTool.RECT -> Annotation.Rect(s, e, color, thickness, fill)
+        AnnotationTool.CIRCLE -> Annotation.Ellipse(s, e, color, thickness, fill)
         AnnotationTool.ARROW -> Annotation.Arrow(s, e, color, thickness)
-        AnnotationTool.BLUR -> Annotation.Blur(s, e)
+        AnnotationTool.BLUR -> Annotation.Blur(s, e, thickness)
         else -> null
     }
 }

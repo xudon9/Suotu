@@ -55,7 +55,7 @@ object AnnotationRenderer {
                 is Annotation.Arrow -> drawArrow(canvas, item, width, height, scale)
                 is Annotation.Text -> drawText(canvas, item, width, height, scale)
                 is Annotation.Blur ->
-                    drawBlur(canvas, item, width, height, sourceForBlur)
+                    drawBlur(canvas, item, width, height, sourceForBlur, item.thickness)
             }
         }
     }
@@ -87,6 +87,12 @@ object AnnotationRenderer {
         canvas.drawPath(path, paint)
     }
 
+    private fun fillPaint(color: Long) = Paint().apply {
+        this.color = color.toInt()
+        style = Paint.Style.FILL
+        isAntiAlias = true
+    }
+
     private fun drawRect(
         canvas: Canvas,
         item: Annotation.Rect,
@@ -95,10 +101,19 @@ object AnnotationRenderer {
         scale: Float,
     ) {
         val b = item.bounds()
-        canvas.drawRect(
-            b.left * w, b.top * h, b.right * w, b.bottom * h,
-            strokePaint(item.color, item.thickness * scale),
-        )
+        // Fill first so the stroke sits on top of it, as any drawing tool would.
+        if (!item.fillColor.isTransparent()) {
+            canvas.drawRect(
+                b.left * w, b.top * h, b.right * w, b.bottom * h,
+                fillPaint(item.fillColor),
+            )
+        }
+        if (!item.color.isTransparent()) {
+            canvas.drawRect(
+                b.left * w, b.top * h, b.right * w, b.bottom * h,
+                strokePaint(item.color, item.thickness * scale),
+            )
+        }
     }
 
     private fun drawEllipse(
@@ -109,10 +124,13 @@ object AnnotationRenderer {
         scale: Float,
     ) {
         val b = item.bounds()
-        canvas.drawOval(
-            RectF(b.left * w, b.top * h, b.right * w, b.bottom * h),
-            strokePaint(item.color, item.thickness * scale),
-        )
+        val oval = RectF(b.left * w, b.top * h, b.right * w, b.bottom * h)
+        if (!item.fillColor.isTransparent()) {
+            canvas.drawOval(oval, fillPaint(item.fillColor))
+        }
+        if (!item.color.isTransparent()) {
+            canvas.drawOval(oval, strokePaint(item.color, item.thickness * scale))
+        }
     }
 
     /**
@@ -223,6 +241,7 @@ object AnnotationRenderer {
         w: Int,
         h: Int,
         source: Bitmap?,
+        thickness: Float,
     ) {
         val b = item.bounds()
         val left = (b.left * w).toInt().coerceIn(0, w - 1)
@@ -246,15 +265,28 @@ object AnnotationRenderer {
             return
         }
 
-        // Block size is driven by the SHORTER side, not a fixed block count.
+        // Block size comes from the thickness slider, so the control the user is holding
+        // visibly changes coarseness.
         //
-        // A fixed count applied to a wide, thin selection (one line of text) produced
-        // blocks far taller than the glyphs: the averaging then happened mostly
-        // vertically, and the top and bottom edges of the letters survived as readable
-        // fragments. Verified against OCR — a redaction that merely looks blocky is
-        // worse than none, because it is trusted.
-        val minSide = minOf(rectW, rectH)
-        val blockPx = (minSide / 3f).coerceAtLeast(3f)
+        // It is still CAPPED by the region's shorter side. A fixed block count applied
+        // to a wide, thin selection (one line of text) produced blocks far taller than
+        // the glyphs: averaging then happened mostly vertically and the tops and bottoms
+        // of letters survived as readable fragments. Keeping the cap preserves the
+        // property that matters — a redaction that merely looks blocky is worse than
+        // none, because it is trusted.
+        val t = ((thickness - AnnotationThickness.MIN) /
+            (AnnotationThickness.MAX - AnnotationThickness.MIN)).coerceIn(0f, 1f)
+        // 0.4%..4% of image width, so coarseness scales with the image rather than with
+        // whatever pixel dimensions this canvas happens to have.
+        //
+        // The low end is deliberately fine. A measured sweep showed that with a higher
+        // floor the cap below swallowed the top half of the slider's travel — every
+        // position from the midpoint up produced an identical 40px block, so the control
+        // appeared broken. NOTE: at the finest settings small text can remain partly
+        // legible; that is the user's choice, not an accident.
+        val requested = w * (0.004f + t * 0.036f)
+        val maxUseful = minOf(rectW, rectH) / 2f
+        val blockPx = requested.coerceIn(2f, maxUseful.coerceAtLeast(2f))
         val smallW = (rectW / blockPx).toInt().coerceAtLeast(1)
         val smallH = (rectH / blockPx).toInt().coerceAtLeast(1)
 

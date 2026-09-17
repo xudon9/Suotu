@@ -50,8 +50,26 @@ enum class FormatPolicy(@StringRes val labelRes: Int) {
      */
     AUTO(R.string.format_auto),
 
+    /**
+     * Force WebP — usually about half the size of JPEG at equal legibility.
+     *
+     * AUTO nearly always lands on WebP anyway, but naming it explicitly is worth a chip:
+     * it makes the format predictable when the recipient is known to support it.
+     */
+    WEBP_ONLY(R.string.format_webp),
+
     /** Force JPEG — maximum compatibility with older clients. */
     JPEG_ONLY(R.string.format_jpeg),
+
+    /**
+     * Force PNG — lossless, so no compression artefacts at all.
+     *
+     * Deliberately not part of AUTO: PNG is typically several times larger than a
+     * lossy encode of the same screenshot, so including it in a "smallest wins" search
+     * would mean it never won and the option would be unreachable. It exists for when
+     * pixel-exactness matters more than size.
+     */
+    PNG_ONLY(R.string.format_png),
     ;
 
     companion object {

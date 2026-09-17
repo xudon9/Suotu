@@ -202,4 +202,26 @@
     <string name="quality_summary_manual">q%1$d</string>
     <string name="saved_percent">%1$d%% smaller</string>
     <string name="send">Send</string>
+
+    <!-- PNG format -->
+    <string name="format_png">PNG</string>
+
+    <!-- Save menu -->
+    <string name="save">Save</string>
+    <string name="save_overwrite">Overwrite original</string>
+    <string name="save_as_new">Save as new</string>
+    <string name="save_overwrite_desc">Replaces the full-size original</string>
+    <string name="save_as_new_desc">Keeps the original, adds a copy to %1$s</string>
+    <string name="saved_as_new">Saved to %1$s</string>
+    <string name="save_as_new_failed">Could not save a copy</string>
+    <string name="format_webp">WebP</string>
+
+    <!-- Colour picker -->
+    <string name="color_stroke">Line</string>
+    <string name="color_fill">Fill</string>
+    <string name="color_pick_stroke">Line colour</string>
+    <string name="color_pick_fill">Fill colour</string>
+    <string name="color_none">None</string>
+    <string name="color_preview">Preview</string>
+    <string name="ok">OK</string>
 </resources>
