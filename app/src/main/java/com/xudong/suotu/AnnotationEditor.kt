@@ -14,7 +14,10 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -58,6 +61,7 @@ import androidx.compose.ui.unit.dp
  * LEFTOVER space of a bounded column so the toolbars and action row are always on
  * screen, whatever the image's aspect ratio.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun AnnotationEditor(
     image: ImageBitmap,
@@ -99,10 +103,15 @@ fun AnnotationEditor(
 
         val ratio = image.width.toFloat() / image.height.toFloat()
 
+        // The canvas takes the leftover space but is CAPPED, so it cannot squeeze the
+        // toolbars below it to zero height. Without the cap, a tall screenshot claimed
+        // everything and the colour palette was laid out at zero height — present in
+        // the tree, invisible on screen.
         Box(
             Modifier
                 .fillMaxWidth()
-                .weight(1f),
+                .weight(1f, fill = false)
+                .heightIn(max = 420.dp),
             contentAlignment = Alignment.Center,
         ) {
             Box(
@@ -294,10 +303,14 @@ fun AnnotationEditor(
 
         Spacer(Modifier.height(10.dp))
 
-        // Tools
-        Row(
+        // Tools.
+        //
+        // FlowRow, not Row: six chips do not fit across a 1080px phone, and a plain Row
+        // silently pushed the last one (Blur) off-screen entirely.
+        FlowRow(
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             AnnotationTool.entries.forEach { t ->
                 FilterChip(
@@ -359,11 +372,12 @@ fun AnnotationEditor(
             )
         }
 
-        // Actions
-        Row(
+        // Actions. FlowRow for the same reason: with a selection active there are five
+        // controls here, which overflow a narrow screen.
+        FlowRow(
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             TextButton(
                 onClick = { onStateChange(state.undo()) },
@@ -382,7 +396,6 @@ fun AnnotationEditor(
                 }
             }
 
-            Spacer(Modifier.weight(1f))
             OutlinedButton(onClick = onCancel) {
                 Text(stringResource(R.string.annotate_cancel))
             }

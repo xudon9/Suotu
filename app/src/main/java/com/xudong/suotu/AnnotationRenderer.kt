@@ -246,10 +246,17 @@ object AnnotationRenderer {
             return
         }
 
-        // ~12 blocks across the region, so the mosaic is coarse regardless of its size.
-        val blocks = 12
-        val smallW = (rectW / (rectW.toFloat() / blocks)).toInt().coerceAtLeast(2)
-        val smallH = (rectH * smallW / rectW).coerceAtLeast(2)
+        // Block size is driven by the SHORTER side, not a fixed block count.
+        //
+        // A fixed count applied to a wide, thin selection (one line of text) produced
+        // blocks far taller than the glyphs: the averaging then happened mostly
+        // vertically, and the top and bottom edges of the letters survived as readable
+        // fragments. Verified against OCR — a redaction that merely looks blocky is
+        // worse than none, because it is trusted.
+        val minSide = minOf(rectW, rectH)
+        val blockPx = (minSide / 3f).coerceAtLeast(3f)
+        val smallW = (rectW / blockPx).toInt().coerceAtLeast(1)
+        val smallH = (rectH / blockPx).toInt().coerceAtLeast(1)
 
         val region = runCatching {
             Bitmap.createBitmap(source, left, top, rectW, rectH)
@@ -293,6 +300,9 @@ object AnnotationRenderer {
      */
     fun flatten(source: Bitmap, items: List<Annotation>): Bitmap {
         if (items.isEmpty()) return source
+        // ARGB_8888 regardless of the source config: a 16-bit PNG decodes as RGBA_F16,
+        // which Canvas cannot draw into on every device, and the extra precision is
+        // worthless once the result is encoded as WebP or JPEG.
         val out = source.copy(Bitmap.Config.ARGB_8888, true) ?: return source
         // Blur samples the ORIGINAL pixels: sampling the canvas being drawn into would
         // let one annotation pixelate another.
