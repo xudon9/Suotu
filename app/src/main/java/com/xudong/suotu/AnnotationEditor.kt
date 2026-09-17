@@ -1,6 +1,7 @@
 package com.xudong.suotu
 
 import android.graphics.Bitmap
+import android.graphics.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -99,7 +100,10 @@ fun AnnotationEditor(
     // The bitmap the blur tool samples, so the live preview shows real mosaic pixels.
     val androidBitmap: Bitmap = remember(image) { image.asAndroidBitmap() }
     DisposableEffect(image) {
-        onDispose { AnnotationRenderer.invalidateBlurCache() }
+        onDispose {
+            AnnotationRenderer.invalidateBlurCache()
+            CommittedOverlayCache.clear()
+        }
     }
 
     Column(Modifier.fillMaxSize()) {
@@ -243,18 +247,28 @@ fun AnnotationEditor(
                                 size.width, size.height, image.width, image.height
                             )
 
-                            // Committed annotations, via the SAME renderer used for the
-                            // final bitmap, so the preview cannot disagree with output.
+                            // Committed annotations are rendered ONCE into an overlay
+                            // bitmap and then blitted, rather than re-rendered every
+                            // frame.
+                            //
+                            // Re-rendering cost grew with the number of blur shapes:
+                            // each one clips and blits a full-canvas blurred bitmap, so
+                            // one shape was fine but the second and third made a drag
+                            // visibly lag. The overlay only changes when the committed
+                            // list changes, which is never during a drag.
+                            val overlay = committedOverlay(
+                                stateRef.value.items,
+                                fit.displayWidth.toInt(),
+                                fit.displayHeight.toInt(),
+                                androidBitmap,
+                            )
+
                             drawContext.canvas.nativeCanvas.let { native ->
                                 val save = native.save()
                                 native.translate(fit.offsetX, fit.offsetY)
-                                AnnotationRenderer.render(
-                                    native,
-                                    stateRef.value.items,
-                                    fit.displayWidth.toInt(),
-                                    fit.displayHeight.toInt(),
-                                    sourceForBlur = androidBitmap,
-                                )
+                                if (overlay != null) {
+                                    native.drawBitmap(overlay, 0f, 0f, null)
+                                }
 
                                 // The gesture in flight.
                                 val draft = buildDraft(
@@ -501,6 +515,65 @@ fun AnnotationEditor(
         )
     }
 }
+
+/**
+ * Cached render of the COMMITTED annotations, at preview size.
+ *
+ * Rebuilt only when the item list or the canvas size changes. During a drag neither
+ * changes, so each frame becomes a single bitmap blit regardless of how many blur
+ * shapes are already on the canvas — which is what stopped the second and third blur
+ * rectangle from making the drag lag.
+ */
+private object CommittedOverlayCache {
+    private var items: List<Annotation>? = null
+    private var width = 0
+    private var height = 0
+    private var source: Bitmap? = null
+    private var bitmap: Bitmap? = null
+
+    fun get(
+        items: List<Annotation>,
+        width: Int,
+        height: Int,
+        source: Bitmap,
+    ): Bitmap? {
+        if (items.isEmpty() || width < 1 || height < 1) return null
+
+        val cached = bitmap
+        if (cached != null && !cached.isRecycled &&
+            this.width == width && this.height == height &&
+            this.source === source && this.items == items
+        ) {
+            return cached
+        }
+
+        cached?.recycle()
+        val fresh = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        AnnotationRenderer.render(
+            Canvas(fresh), items, width, height, sourceForBlur = source
+        )
+        this.items = items
+        this.width = width
+        this.height = height
+        this.source = source
+        bitmap = fresh
+        return fresh
+    }
+
+    fun clear() {
+        bitmap?.recycle()
+        bitmap = null
+        items = null
+        source = null
+    }
+}
+
+private fun committedOverlay(
+    items: List<Annotation>,
+    width: Int,
+    height: Int,
+    source: Bitmap,
+): Bitmap? = CommittedOverlayCache.get(items, width, height, source)
 
 /** Which colour the picker is currently editing. */
 private enum class PickTarget { STROKE, FILL }

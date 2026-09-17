@@ -39,13 +39,15 @@ object AnnotationRenderer {
     /**
      * One blurred copy, kept between renders.
      *
-     * Without this the cache was rebuilt and thrown away on every call, so a drag
-     * re-blurred the entire image on every frame while any committed blur shape was on
-     * screen. A single entry is enough: the radius only changes when the slider moves.
+     * Cached at the TARGET canvas size, not the source size. That matters twice over:
+     * blurring 496x1103 preview pixels instead of 1260x2800 source pixels is ~6x less
+     * work, and the subsequent draw becomes a 1:1 blit rather than a scaled one.
      */
     private class BlurCacheEntry(
         val source: Bitmap,
         val radius: Int,
+        val width: Int,
+        val height: Int,
         val blurred: Bitmap,
     )
 
@@ -57,17 +59,42 @@ object AnnotationRenderer {
         blurCache = null
     }
 
-    private fun cachedBlur(source: Bitmap, radius: Float): Bitmap {
+    /**
+     * A blurred copy of [source] already scaled to [targetW] x [targetH].
+     *
+     * Pre-scaling is the fix for a specific lag: [paintWithBlur] previously drew the
+     * full-resolution blurred bitmap SCALED into the canvas, once per blur shape per
+     * frame. One such blit was tolerable, which is why the first shape felt fine, but
+     * each additional shape added another ~1.4M-pixel scaled read to every frame of the
+     * drag — so the second and third shapes made it lag.
+     */
+    private fun cachedBlur(
+        source: Bitmap,
+        radius: Float,
+        targetW: Int,
+        targetH: Int,
+    ): Bitmap? {
+        if (targetW < 1 || targetH < 1) return null
         val key = radius.toInt().coerceAtLeast(1)
         val hit = blurCache
         if (hit != null && hit.source === source && hit.radius == key &&
-            !hit.blurred.isRecycled
+            hit.width == targetW && hit.height == targetH && !hit.blurred.isRecycled
         ) {
             return hit.blurred
         }
         hit?.blurred?.recycle()
-        val fresh = GaussianBlur.blur(source, key.toFloat())
-        blurCache = BlurCacheEntry(source, key, fresh)
+
+        // Downscale first, then blur: the blur cost is linear in pixel count, and the
+        // result is drawn at this size anyway.
+        val scaled = if (source.width == targetW && source.height == targetH) {
+            source
+        } else {
+            Bitmap.createScaledBitmap(source, targetW, targetH, true)
+        }
+        val fresh = GaussianBlur.blur(scaled, radius)
+        if (scaled !== source && scaled !== fresh) scaled.recycle()
+
+        blurCache = BlurCacheEntry(source, key, targetW, targetH, fresh)
         return fresh
     }
 
@@ -95,7 +122,11 @@ object AnnotationRenderer {
         fun blurred(thickness: Float): Bitmap? {
             if (draftOutlineOnly) return null
             val src = sourceForBlur ?: return null
-            return cachedBlur(src, GaussianBlur.radiusFor(thickness, width))
+            // Radius is derived from the TARGET width so the visual blur matches what
+            // the same slider setting produces in the flattened output.
+            return cachedBlur(
+                src, GaussianBlur.radiusFor(thickness, width), width, height
+            )
         }
 
         items.forEach { item ->
@@ -209,13 +240,10 @@ object AnnotationRenderer {
     ) {
         val save = canvas.save()
         canvas.clipPath(path)
-        // Scale the blurred copy into the render area rather than drawing it 1:1.
-        //
-        // The source is the FULL-RESOLUTION bitmap while the canvas may be the smaller,
-        // letterboxed preview. Drawing at (0,0) at native size made the shape reveal
-        // pixels from the image's top-left corner instead of from underneath itself —
-        // and it went unnoticed because in flatten() the two sizes coincide, so only the
-        // preview was wrong.
+        // The cached bitmap is already the canvas size, so this is a 1:1 blit. The
+        // src/dst rects are still passed explicitly: relying on a bare drawBitmap at
+        // (0,0) is what previously made shapes sample the image's top-left corner
+        // whenever the two sizes differed.
         canvas.drawBitmap(
             blurredSource,
             Rect(0, 0, blurredSource.width, blurredSource.height),
