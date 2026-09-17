@@ -41,6 +41,17 @@ data class ShrinkResult(
 enum class EncodedFormat(val mimeType: String, val extension: String, val label: String) {
     JPEG("image/jpeg", "jpg", "JPEG"),
     WEBP("image/webp", "webp", "WebP"),
+
+    /**
+     * Lossless. Quality is meaningless here, so the search is skipped entirely — see
+     * [ShrinkEngine.searchQuality]. Useful when the recipient must receive pixel-exact
+     * text, at a cost of several times the bytes.
+     */
+    PNG("image/png", "png", "PNG"),
+    ;
+
+    /** True when the encoder ignores the quality parameter. */
+    val isLossless: Boolean get() = this == PNG
 }
 
 /**
@@ -90,6 +101,8 @@ object ShrinkEngine {
         budgetBytes: Int,
         formatPolicy: FormatPolicy,
         crop: CropRect? = null,
+        forcedQuality: Int? = null,
+        annotations: List<Annotation> = emptyList(),
     ): ShrinkResult {
         val sourceBytes = querySize(context, uri)
         val (srcWidth, srcHeight) = readDimensions(context, uri)
@@ -104,19 +117,44 @@ object ShrinkEngine {
             ?: throw IllegalStateException("Could not decode the image")
 
         val oriented = applyExifRotation(context, uri, decoded)
-        val cropped = crop?.let { applyCrop(oriented, it) } ?: oriented
-        if (cropped !== oriented) oriented.recycle()
+
+        // Annotate BEFORE cropping and scaling.
+        //
+        // Annotation coordinates are normalised against the whole source image, so they
+        // must be applied while the bitmap still represents that whole image. Doing it
+        // after the crop would place every mark in the wrong spot; doing it after the
+        // scale would bake in preview-sized strokes that no longer match the output.
+        val annotated = if (annotations.isEmpty()) {
+            oriented
+        } else {
+            AnnotationRenderer.flatten(oriented, annotations)
+        }
+        if (annotated !== oriented) oriented.recycle()
+
+        val cropped = crop?.let { applyCrop(annotated, it) } ?: annotated
+        if (cropped !== annotated) annotated.recycle()
 
         val scaled = scaleToWidth(cropped, targetWidth)
         if (scaled !== cropped) cropped.recycle()
 
         val candidates = when (formatPolicy) {
+            FormatPolicy.WEBP_ONLY -> listOf(EncodedFormat.WEBP)
             FormatPolicy.JPEG_ONLY -> listOf(EncodedFormat.JPEG)
+            FormatPolicy.PNG_ONLY -> listOf(EncodedFormat.PNG)
             FormatPolicy.AUTO -> listOf(EncodedFormat.WEBP, EncodedFormat.JPEG)
         }
 
         val best = candidates
-            .map { format -> searchQuality(scaled, format, budgetBytes) }
+            .map { format ->
+                if (forcedQuality != null && !format.isLossless) {
+                    // Manual override: encode exactly what was asked for. The budget is
+                    // deliberately not enforced here — the user chose this quality, and
+                    // silently overriding it would make the slider a lie.
+                    encodeAt(scaled, format, forcedQuality)
+                } else {
+                    searchQuality(scaled, format, budgetBytes)
+                }
+            }
             .reduce { a, b -> pickBetter(a, b, budgetBytes) }
 
         val result = ShrinkResult(
@@ -195,11 +233,26 @@ object ShrinkEngine {
         }
     }
 
+    /** Encode once at an exact quality, for the manual override. */
+    private fun encodeAt(
+        bitmap: Bitmap,
+        format: EncodedFormat,
+        quality: Int,
+    ): Encoded {
+        val clamped = quality.coerceIn(Settings.QUALITY_MIN, Settings.QUALITY_MAX)
+        return Encoded(encode(bitmap, format, clamped), clamped, format)
+    }
+
     /**
      * Binary-search the highest quality whose encoded size still fits the budget.
      * ~6 encodes of an 800px image is a few hundred milliseconds.
      */
     private fun searchQuality(bitmap: Bitmap, format: EncodedFormat, budget: Int): Encoded {
+        // Lossless formats ignore quality, so searching would encode the same bytes
+        // six times over.
+        if (format.isLossless) {
+            return Encoded(encode(bitmap, format, 100), 100, format)
+        }
         var low = MIN_QUALITY
         var high = MAX_QUALITY
         var bestFitting: Encoded? = null
@@ -243,6 +296,8 @@ object ShrinkEngine {
                     @Suppress("DEPRECATION")
                     Bitmap.CompressFormat.WEBP
                 }
+
+            EncodedFormat.PNG -> Bitmap.CompressFormat.PNG
         }
         bitmap.compress(compressFormat, quality, out)
         return out.toByteArray()

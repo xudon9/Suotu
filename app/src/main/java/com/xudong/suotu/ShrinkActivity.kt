@@ -3,10 +3,10 @@ package com.xudong.suotu
 import android.app.Activity
 import android.content.Intent
 import android.graphics.BitmapFactory
-import android.widget.Toast
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -26,16 +26,16 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -43,7 +43,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -53,20 +52,24 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
@@ -76,6 +79,16 @@ import kotlinx.coroutines.withContext
  *  - opened from the launcher with a *recent* matching image, loaded automatically per
  *    [Settings.openRules] / [Settings.openRecencySeconds],
  *  - opened with nothing recent, which offers a manual picker.
+ *
+ * Layout priorities, learned from testing on a real phone:
+ *
+ *  - The PREVIEW gets the space. It is what the user is judging; the controls are not.
+ *  - Width / quality / format live in a collapsed [OptionsSection]. They are remembered
+ *    across launches and rarely changed, and expanded they cost about a third of the
+ *    screen.
+ *  - Actions are FIXED-SIZE icons, never weighted text. Five Chinese labels across a
+ *    1260px screen were each clipped to a single glyph (标注 vs 标准 became
+ *    indistinguishable) and the row still overflowed the bottom edge.
  */
 class ShrinkActivity : AppCompatActivity() {
 
@@ -109,14 +122,22 @@ class ShrinkActivity : AppCompatActivity() {
             SuotuTheme {
                 val context = LocalContext.current
                 var width by remember { mutableIntStateOf(settings.outputWidth) }
-                var sliderPos by remember { mutableFloatStateOf(width.toFloat()) }
                 var policy by remember { mutableStateOf(settings.formatPolicy) }
+                var manualQuality by remember { mutableStateOf(settings.manualQuality) }
+                // Expanded when the app is opened cold with nothing loaded — there is
+                // room, and the controls are what the screen is for at that point. As
+                // soon as an image arrives the preview takes priority, so it folds.
+                var optionsExpanded by remember { mutableStateOf(shared == null) }
+                var foldedForImage by remember { mutableStateOf(false) }
                 var source by remember { mutableStateOf(shared) }
                 var manualPick by remember { mutableStateOf(false) }
                 var crop by remember { mutableStateOf(CropRect.FULL) }
                 var cropping by remember { mutableStateOf(false) }
                 var fullscreen by remember { mutableStateOf(false) }
                 var confirmReplace by remember { mutableStateOf(false) }
+                var saveMenuOpen by remember { mutableStateOf(false) }
+                var annotating by remember { mutableStateOf(false) }
+                var annotations by remember { mutableStateOf(AnnotationState()) }
                 var toast by remember { mutableStateOf<String?>(null) }
                 var sourceImage by remember { mutableStateOf<ImageBitmap?>(null) }
                 var state by remember {
@@ -131,6 +152,7 @@ class ShrinkActivity : AppCompatActivity() {
                     if (picked != null) {
                         manualPick = true
                         crop = CropRect.FULL
+                        annotations = AnnotationState()
                         source = picked
                     }
                 }
@@ -169,6 +191,7 @@ class ShrinkActivity : AppCompatActivity() {
                     when {
                         newest != null && newest.uri != source -> {
                             crop = CropRect.FULL
+                            annotations = AnnotationState()
                             source = newest.uri
                         }
                         newest != null -> Unit
@@ -178,7 +201,18 @@ class ShrinkActivity : AppCompatActivity() {
                     }
                 }
 
-                // A downscaled copy of the source, used only for the crop canvas.
+                // Fold the options once an image is actually loaded, but only the FIRST
+                // time: re-folding on every re-encode would fight the user every time
+                // they moved a slider.
+                LaunchedEffect(source) {
+                    if (source != null && !foldedForImage) {
+                        foldedForImage = true
+                        optionsExpanded = false
+                    }
+                }
+
+                // A bounded-resolution copy of the source, for the crop and annotate
+                // canvases.
                 LaunchedEffect(source) {
                     val uri = source
                     sourceImage = if (uri == null) null else withContext(Dispatchers.IO) {
@@ -187,9 +221,11 @@ class ShrinkActivity : AppCompatActivity() {
                     }
                 }
 
-                LaunchedEffect(source, width, policy, crop) {
+                LaunchedEffect(
+                    source, width, policy, crop, manualQuality, annotations.items
+                ) {
                     val uri = source ?: return@LaunchedEffect
-                    // Debounce: the slider fires continuously while dragging, and each
+                    // Debounce: the sliders fire continuously while dragging, and each
                     // re-encode runs a multi-step quality search.
                     delay(180)
                     state = UiState.Working
@@ -202,6 +238,8 @@ class ShrinkActivity : AppCompatActivity() {
                                 budgetBytes = SizeRange.budgetFor(width),
                                 formatPolicy = policy,
                                 crop = crop.takeIf { !it.isFullFrame },
+                                forcedQuality = manualQuality,
+                                annotations = annotations.items,
                             )
                         }
                         UiState.Ready(result)
@@ -216,179 +254,85 @@ class ShrinkActivity : AppCompatActivity() {
 
                 val img = sourceImage
 
-                // Crop mode gets its own NON-SCROLLING full-height layout.
-                //
-                // It cannot live inside the scrolling column below: a verticalScroll
-                // measures its children with infinite height, so weight(1f) has nothing
-                // to divide and the crop canvas grows to the image's natural height,
-                // pushing the action buttons off-screen. Disabling the scroll does not
-                // help, because the constraints are still unbounded.
-                if (cropping && img != null) {
-                    Surface(Modifier.fillMaxSize()) {
-                        Column(
-                            Modifier
-                                .fillMaxSize()
-                                .safeDrawingPadding()
-                                .padding(20.dp),
-                        ) {
-                            Text(
-                                stringResource(R.string.crop_title),
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                            )
-                            Spacer(Modifier.height(8.dp))
-                            CropEditor(
-                                image = img,
-                                crop = crop,
-                                onCropChange = { crop = it },
-                                onApply = { cropping = false },
-                                onCancel = {
-                                    crop = CropRect.FULL
-                                    cropping = false
-                                },
-                            )
-                        }
-                    }
-                } else Surface(Modifier.fillMaxSize()) {
-                    Column(
-                        Modifier
-                            .fillMaxSize()
-                            .safeDrawingPadding()
-                            .padding(20.dp)
-                            .verticalScroll(rememberScrollState()),
+                when {
+                    annotating && img != null -> FullScreenEditor(
+                        titleRes = R.string.annotate_title,
                     ) {
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(
-                                stringResource(R.string.app_name),
-                                style = MaterialTheme.typography.headlineMedium,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.weight(1f),
-                            )
-                            TextButton(onClick = {
-                                startActivity(Intent(context, HelpActivity::class.java))
-                            }) { Text(stringResource(R.string.help)) }
-                            TextButton(onClick = {
-                                startActivity(
-                                    Intent(context, SettingsActivity::class.java)
-                                )
-                            }) { Text(stringResource(R.string.settings)) }
-                        }
-
-                        Spacer(Modifier.height(8.dp))
-
-                        run {
-                            WidthSlider(
-                                width = width,
-                                sliderPos = sliderPos,
-                                onSlide = {
-                                    sliderPos = it
-                                    width = (it / SizeRange.STEP).toInt() *
-                                        SizeRange.STEP
-                                },
-                                onQuickPick = {
-                                    width = it
-                                    sliderPos = it.toFloat()
-                                    settings.outputWidth = it
-                                },
-                                onSettle = { settings.outputWidth = width },
-                            )
-
-                            Spacer(Modifier.height(10.dp))
-                            FormatRow(selected = policy) {
-                                policy = it
-                                settings.formatPolicy = it
-                            }
-
-                            Spacer(Modifier.height(16.dp))
-
-                            when (val s = state) {
-                                is UiState.Empty -> EmptyState(
-                                    message = s.reason,
-                                    onPick = { picker.launchImage() },
-                                )
-
-                                is UiState.Working -> Box(
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .height(220.dp),
-                                    contentAlignment = Alignment.Center,
-                                ) { CircularProgressIndicator() }
-
-                                is UiState.Failed -> Column {
-                                    Text(
-                                        s.message,
-                                        color = MaterialTheme.colorScheme.error,
-                                    )
-                                    Spacer(Modifier.height(12.dp))
-                                    OutlinedButton(onClick = { picker.launchImage() }) {
-                                        Text(stringResource(R.string.open_an_image))
-                                    }
-                                }
-
-                                is UiState.Ready -> {
-                                    ResultCard(
-                                        result = s.result,
-                                        crop = crop,
-                                        onTapPreview = { fullscreen = true },
-                                        onSelect = { selection ->
-                                            // The drawing happened on the already
-                                            // cropped preview, so compose rather than
-                                            // replace — otherwise a second selection
-                                            // would jump somewhere unrelated.
-                                            crop = crop.compose(selection)
-                                        },
-                                        onClearSelection = { crop = CropRect.FULL },
-                                    )
-                                    Spacer(Modifier.height(12.dp))
-                                    Row(
-                                        Modifier.fillMaxWidth(),
-                                        horizontalArrangement =
-                                            Arrangement.spacedBy(8.dp),
-                                    ) {
-                                        OutlinedButton(
-                                            onClick = { picker.launchImage() },
-                                            modifier = Modifier.weight(1f),
-                                        ) { Text(stringResource(R.string.change)) }
-
-                                        // Handle-based editor stays available for
-                                        // precise tweaks after a rough draw.
-                                        OutlinedButton(
-                                            onClick = { cropping = true },
-                                            enabled = sourceImage != null,
-                                            modifier = Modifier.weight(1f),
-                                        ) { Text(stringResource(R.string.adjust)) }
-
-                                        // Destructive, so it is an outlined button
-                                        // next to Send rather than a second primary.
-                                        OutlinedButton(
-                                            onClick = { confirmReplace = true },
-                                            enabled = source?.let {
-                                                OriginalReplacer.isMediaStoreUri(it)
-                                            } == true,
-                                            modifier = Modifier.weight(1.2f),
-                                        ) {
-                                            Text(stringResource(R.string.replace_original))
-                                        }
-
-                                        Button(
-                                            onClick = { sendResult(s.result) },
-                                            modifier = Modifier.weight(1.6f),
-                                        ) {
-                                            Text(
-                                                stringResource(
-                                                    R.string.send_size,
-                                                    formatBytes(s.result.outputBytes),
-                                                )
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                        AnnotationEditor(
+                            image = img,
+                            state = annotations,
+                            onStateChange = { annotations = it },
+                            onApply = { annotating = false },
+                            onCancel = { annotating = false },
+                        )
                     }
+
+                    cropping && img != null -> FullScreenEditor(
+                        titleRes = R.string.crop_title,
+                    ) {
+                        CropEditor(
+                            image = img,
+                            crop = crop,
+                            onCropChange = { crop = it },
+                            onApply = { cropping = false },
+                            onCancel = {
+                                crop = CropRect.FULL
+                                cropping = false
+                            },
+                        )
+                    }
+
+                    else -> MainScreen(
+                        state = state,
+                        crop = crop,
+                        width = width,
+                        policy = policy,
+                        manualQuality = manualQuality,
+                        optionsExpanded = optionsExpanded,
+                        canAnnotate = img != null,
+                        canReplace = source?.let {
+                            OriginalReplacer.isMediaStoreUri(it)
+                        } == true,
+                        saveMenuOpen = saveMenuOpen,
+                        onOptionsExpandedChange = { optionsExpanded = it },
+                        onWidthChange = { width = it },
+                        onWidthSettled = { settings.outputWidth = width },
+                        onQualityChange = {
+                            manualQuality = it
+                            settings.manualQuality = it
+                        },
+                        onPolicyChange = {
+                            policy = it
+                            settings.formatPolicy = it
+                        },
+                        onPick = { picker.launchImage() },
+                        onCrop = { cropping = true },
+                        onAnnotate = { annotating = true },
+                        onReplace = {
+                            saveMenuOpen = false
+                            confirmReplace = true
+                        },
+                        onSaveMenu = { saveMenuOpen = true },
+                        onSaveMenuDismiss = { saveMenuOpen = false },
+                        onSaveAsNew = {
+                            saveMenuOpen = false
+                            (state as? UiState.Ready)?.let { ready ->
+                                lifecycleScope.launch {
+                                    toast = saveAsNew(ready.result)
+                                }
+                            }
+                        },
+                        onSend = { result -> sendResult(result) },
+                        onTapPreview = { fullscreen = true },
+                        onSelect = { selection -> crop = crop.compose(selection) },
+                        onClearSelection = { crop = CropRect.FULL },
+                        onHelp = {
+                            startActivity(Intent(context, HelpActivity::class.java))
+                        },
+                        onSettings = {
+                            startActivity(Intent(context, SettingsActivity::class.java))
+                        },
+                    )
                 }
 
                 // Destructive and unrecoverable, so it always asks first.
@@ -419,8 +363,6 @@ class ShrinkActivity : AppCompatActivity() {
                                             formatBytes(ready.result.outputBytes),
                                         )
                                     )
-                                    // Warn when the extension has to change, so the
-                                    // file does not silently appear under a new name.
                                     if (newName != null && newName != currentName) {
                                         Spacer(Modifier.height(10.dp))
                                         Text(
@@ -458,7 +400,9 @@ class ShrinkActivity : AppCompatActivity() {
 
                 toast?.let { message ->
                     LaunchedEffect(message) {
-                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                        if (message.isNotEmpty()) {
+                            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                        }
                         toast = null
                     }
                 }
@@ -485,67 +429,383 @@ class ShrinkActivity : AppCompatActivity() {
         }
     }
 
-    /** Continuous width control, with the measured presets as quick jumps. */
+    /** Bounded, non-scrolling host for the crop and annotate editors. */
     @Composable
-    private fun WidthSlider(
-        width: Int,
-        sliderPos: Float,
-        onSlide: (Float) -> Unit,
-        onQuickPick: (Int) -> Unit,
-        onSettle: () -> Unit,
-    ) {
-        Column {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+    private fun FullScreenEditor(titleRes: Int, content: @Composable () -> Unit) {
+        Surface(Modifier.fillMaxSize()) {
+            Column(
+                Modifier
+                    .fillMaxSize()
+                    .safeDrawingPadding()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+            ) {
                 Text(
-                    stringResource(R.string.width_label),
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.weight(1f),
+                    stringResource(titleRes),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
                 )
-                Text(
-                    stringResource(R.string.width_value, width),
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                )
+                Spacer(Modifier.height(6.dp))
+                content()
             }
-            Slider(
-                value = sliderPos,
-                onValueChange = onSlide,
-                onValueChangeFinished = onSettle,
-                valueRange = SizeRange.MIN_WIDTH.toFloat()..SizeRange.MAX_WIDTH.toFloat(),
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SizeRange.quickPicks.forEach { preset ->
-                    FilterChip(
-                        selected = width == preset.targetWidth,
-                        onClick = { onQuickPick(preset.targetWidth) },
-                        label = {
-                            Text(
-                                "${stringResource(preset.labelRes)} " +
-                                    "${preset.targetWidth}"
-                            )
-                        },
+        }
+    }
+
+    @Composable
+    private fun MainScreen(
+        state: UiState,
+        crop: CropRect,
+        width: Int,
+        policy: FormatPolicy,
+        manualQuality: Int?,
+        optionsExpanded: Boolean,
+        canAnnotate: Boolean,
+        canReplace: Boolean,
+        saveMenuOpen: Boolean,
+        onOptionsExpandedChange: (Boolean) -> Unit,
+        onWidthChange: (Int) -> Unit,
+        onWidthSettled: () -> Unit,
+        onQualityChange: (Int?) -> Unit,
+        onPolicyChange: (FormatPolicy) -> Unit,
+        onPick: () -> Unit,
+        onCrop: () -> Unit,
+        onAnnotate: () -> Unit,
+        onReplace: () -> Unit,
+        onSaveMenu: () -> Unit,
+        onSaveMenuDismiss: () -> Unit,
+        onSaveAsNew: () -> Unit,
+        onSend: (ShrinkResult) -> Unit,
+        onTapPreview: () -> Unit,
+        onSelect: (CropRect) -> Unit,
+        onClearSelection: () -> Unit,
+        onHelp: () -> Unit,
+        onSettings: () -> Unit,
+    ) {
+        Surface(Modifier.fillMaxSize()) {
+            // A bounded Column, NOT a scrolling one: the action bar is laid out first
+            // and the preview takes what is left, so the bar can never be pushed off
+            // the bottom edge.
+            Column(
+                Modifier
+                    .fillMaxSize()
+                    .safeDrawingPadding()
+                    .padding(horizontal = 16.dp),
+            ) {
+                // Compact title row.
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(top = 6.dp, bottom = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        stringResource(R.string.app_name),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f),
                     )
+                    TextButton(onClick = onHelp) {
+                        Text(stringResource(R.string.help), fontSize = 13.sp)
+                    }
+                    TextButton(onClick = onSettings) {
+                        Text(stringResource(R.string.settings), fontSize = 13.sp)
+                    }
+                }
+
+                OptionsSection(
+                    expanded = optionsExpanded,
+                    onExpandedChange = onOptionsExpandedChange,
+                    width = width,
+                    onWidthChange = onWidthChange,
+                    onWidthSettled = onWidthSettled,
+                    manualQuality = manualQuality,
+                    actualQuality = (state as? UiState.Ready)?.result?.quality,
+                    onQualityChange = onQualityChange,
+                    policy = policy,
+                    onPolicyChange = onPolicyChange,
+                )
+
+                Spacer(Modifier.height(8.dp))
+
+                // The preview claims all remaining space.
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    when (state) {
+                        is UiState.Empty -> EmptyState(state.reason, onPick)
+
+                        is UiState.Working -> CircularProgressIndicator()
+
+                        is UiState.Failed -> Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            Text(
+                                state.message,
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                            Spacer(Modifier.height(12.dp))
+                            OutlinedButton(onClick = onPick) {
+                                Text(stringResource(R.string.open_an_image))
+                            }
+                        }
+
+                        is UiState.Ready -> PreviewPane(
+                            result = state.result,
+                            crop = crop,
+                            onTapPreview = onTapPreview,
+                            onSelect = onSelect,
+                            onClearSelection = onClearSelection,
+                        )
+                    }
+                }
+
+                // Fixed-size icon actions, only when there is something to act on.
+                if (state is UiState.Ready) {
+                    Spacer(Modifier.height(6.dp))
+                    ActionBar(Modifier.padding(bottom = 6.dp)) {
+                        IconAction(
+                            iconRes = R.drawable.ic_action_change,
+                            labelRes = R.string.change,
+                            onClick = onPick,
+                        )
+                        IconAction(
+                            iconRes = R.drawable.ic_action_crop,
+                            labelRes = R.string.adjust,
+                            onClick = onCrop,
+                            enabled = canAnnotate,
+                        )
+                        IconAction(
+                            iconRes = R.drawable.ic_action_annotate,
+                            labelRes = R.string.annotate,
+                            onClick = onAnnotate,
+                            enabled = canAnnotate,
+                        )
+                        // Save opens a small menu: overwriting is destructive and
+                        // should not be one tap away from an adjacent button.
+                        Box {
+                            IconAction(
+                                iconRes = R.drawable.ic_action_save,
+                                labelRes = R.string.save,
+                                onClick = onSaveMenu,
+                            )
+                            SaveMenu(
+                                expanded = saveMenuOpen,
+                                canOverwrite = canReplace,
+                                onDismiss = onSaveMenuDismiss,
+                                onOverwrite = onReplace,
+                                onSaveAsNew = onSaveAsNew,
+                            )
+                        }
+                        IconAction(
+                            iconRes = R.drawable.ic_action_send,
+                            labelRes = R.string.send,
+                            onClick = { onSend(state.result) },
+                            emphasised = true,
+                            caption = formatBytes(state.result.outputBytes),
+                        )
+                    }
                 }
             }
-            Spacer(Modifier.height(4.dp))
-            Text(
-                stringResource(R.string.quality_auto_note),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+        }
+    }
+
+    /**
+     * Two-option menu anchored above the Save action.
+     *
+     * Overwriting is irreversible, so it is deliberately behind this menu rather than
+     * being its own button in the bar, where a mis-tap on a neighbouring icon could
+     * destroy the original. Each option states its consequence.
+     */
+    @Composable
+    private fun SaveMenu(
+        expanded: Boolean,
+        canOverwrite: Boolean,
+        onDismiss: () -> Unit,
+        onOverwrite: () -> Unit,
+        onSaveAsNew: () -> Unit,
+    ) {
+        // No manual offset. An earlier version nudged the menu up by a hardcoded
+        // -150dp, which only looked right for one menu height on one screen; Compose
+        // already flips a DropdownMenu upwards when there is no room below, and anchors
+        // it to this Box — which is the icon itself.
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = onDismiss,
+        ) {
+            DropdownMenuItem(
+                enabled = canOverwrite,
+                onClick = onOverwrite,
+                text = {
+                    Column {
+                        Text(stringResource(R.string.save_overwrite))
+                        Text(
+                            stringResource(R.string.save_overwrite_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                },
+                leadingIcon = {
+                    Icon(
+                        imageVector = ImageVector.vectorResource(
+                            R.drawable.ic_action_replace
+                        ),
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                    )
+                },
             )
+            DropdownMenuItem(
+                onClick = onSaveAsNew,
+                text = {
+                    Column {
+                        Text(stringResource(R.string.save_as_new))
+                        Text(
+                            stringResource(
+                                R.string.save_as_new_desc, MediaStoreSaver.ALBUM
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                },
+                leadingIcon = {
+                    Icon(
+                        imageVector = ImageVector.vectorResource(
+                            R.drawable.ic_action_save
+                        ),
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                    )
+                },
+            )
+        }
+    }
+
+    /** Preview image plus a single compact stats line. */
+    @Composable
+    private fun PreviewPane(
+        result: ShrinkResult,
+        crop: CropRect,
+        onTapPreview: () -> Unit,
+        onSelect: (CropRect) -> Unit,
+        onClearSelection: () -> Unit,
+    ) {
+        Column(
+            Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            val bitmap = remember(result) {
+                BitmapFactory.decodeByteArray(result.bytes, 0, result.bytes.size)
+            }
+            if (bitmap != null) {
+                val lasso = rememberLassoState()
+                Image(
+                    bitmap = bitmap.asImageBitmap(),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .background(MaterialTheme.colorScheme.previewBackdrop)
+                        .clickable { onTapPreview() }
+                        .drawLasso(
+                            state = lasso,
+                            imageWidth = result.width,
+                            imageHeight = result.height,
+                            enabled = true,
+                            onSelected = onSelect,
+                        ),
+                    contentScale = ContentScale.Fit,
+                )
+            }
+
+            Spacer(Modifier.height(6.dp))
+
+            // One line instead of the previous three-column block: before → after,
+            // the saving, and the encoder settled on.
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            formatBytes(result.sourceBytes),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            "  →  ",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            formatBytes(result.outputBytes),
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        if (result.sourceBytes > 0) {
+                            Text(
+                                "   " + stringResource(
+                                    R.string.saved_percent,
+                                    ((1f - result.ratio) * 100).toInt(),
+                                ),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                    }
+                    Text(
+                        "${result.width}×${result.height} · " +
+                            "${result.format.label} q${result.quality}",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+
+                // Only shown when there is a selection to clear.
+                if (!crop.isFullFrame) {
+                    TextButton(onClick = onClearSelection) {
+                        Text(stringResource(R.string.clear_selection), fontSize = 12.sp)
+                    }
+                }
+            }
+
+            if (result.budgetMissed) {
+                Text(
+                    stringResource(R.string.budget_missed),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
         }
     }
 
     @Composable
     private fun EmptyState(message: String, onPick: () -> Unit) {
         Card(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp)) {
+            Column(
+                Modifier.padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
                 Text(message, style = MaterialTheme.typography.bodyMedium)
                 Spacer(Modifier.height(12.dp))
                 Button(onClick = onPick) {
+                    Icon(
+                        imageVector = ImageVector.vectorResource(
+                            R.drawable.ic_action_change
+                        ),
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.size(8.dp))
                     Text(stringResource(R.string.open_an_image))
                 }
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(12.dp))
                 Text(
                     stringResource(R.string.usage_hint),
                     style = MaterialTheme.typography.bodySmall,
@@ -555,155 +815,18 @@ class ShrinkActivity : AppCompatActivity() {
         }
     }
 
-    @Composable
-    private fun FormatRow(selected: FormatPolicy, onPick: (FormatPolicy) -> Unit) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FormatPolicy.entries.forEach { f ->
-                FilterChip(
-                    selected = f == selected,
-                    onClick = { onPick(f) },
-                    label = { Text(stringResource(f.labelRes)) },
-                )
-            }
-        }
-    }
-
-    @Composable
-    private fun ResultCard(
-        result: ShrinkResult,
-        crop: CropRect,
-        onTapPreview: () -> Unit,
-        onSelect: (CropRect) -> Unit,
-        onClearSelection: () -> Unit,
-    ) {
-        Card(Modifier.fillMaxWidth()) {
-            Column {
-                val bitmap = remember(result) {
-                    BitmapFactory.decodeByteArray(result.bytes, 0, result.bytes.size)
-                }
-                if (bitmap != null) {
-                    val lasso = rememberLassoState()
-                    Image(
-                        bitmap = bitmap.asImageBitmap(),
-                        contentDescription = null,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(240.dp)
-                            .background(MaterialTheme.colorScheme.previewBackdrop)
-                            .clickable { onTapPreview() }
-                            // Draw-to-select sits directly on the preview: a drag picks
-                            // an area, a plain tap still opens the fullscreen viewer.
-                            .drawLasso(
-                                state = lasso,
-                                imageWidth = result.width,
-                                imageHeight = result.height,
-                                enabled = true,
-                                onSelected = onSelect,
-                            ),
-                        contentScale = ContentScale.Fit,
-                    )
-                }
-
-                Column(Modifier.padding(16.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            if (crop.isFullFrame) {
-                                stringResource(R.string.draw_hint)
-                            } else {
-                                stringResource(
-                                    R.string.draw_selected,
-                                    (result.sourceWidth * crop.width).toInt(),
-                                    (result.sourceHeight * crop.height).toInt(),
-                                )
-                            },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (crop.isFullFrame) {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            } else {
-                                MaterialTheme.colorScheme.primary
-                            },
-                            modifier = Modifier.weight(1f),
-                        )
-                        // Only offered when there is something to clear.
-                        if (!crop.isFullFrame) {
-                            TextButton(onClick = onClearSelection) {
-                                Text(stringResource(R.string.clear_selection))
-                            }
-                        }
-                    }
-                    Spacer(Modifier.height(10.dp))
-                    Row(Modifier.fillMaxWidth()) {
-                        StatColumn(
-                            stringResource(R.string.before),
-                            formatBytes(result.sourceBytes),
-                            "${result.sourceWidth}×${result.sourceHeight}",
-                            Modifier.weight(1f),
-                        )
-                        StatColumn(
-                            stringResource(R.string.after),
-                            formatBytes(result.outputBytes),
-                            "${result.width}×${result.height}",
-                            Modifier.weight(1f),
-                        )
-                        StatColumn(
-                            stringResource(R.string.saved),
-                            if (result.sourceBytes > 0)
-                                "${((1f - result.ratio) * 100).toInt()}%" else "—",
-                            "${result.format.label} q${result.quality}",
-                            Modifier.weight(1f),
-                        )
-                    }
-
-                    if (result.budgetMissed) {
-                        Spacer(Modifier.height(10.dp))
-                        Text(
-                            stringResource(R.string.budget_missed),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error,
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    @Composable
-    private fun StatColumn(
-        label: String,
-        value: String,
-        sub: String,
-        modifier: Modifier = Modifier,
-    ) {
-        Column(modifier) {
-            Text(
-                label,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                value,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Text(
-                sub,
-                style = MaterialTheme.typography.bodySmall,
-                fontFamily = FontFamily.Monospace,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-
     /**
      * Overwrite the original, asking the system for consent if required.
      *
      * Android 10+ refuses to let an app modify media it did not create without explicit
-     * user approval, delivered as a [RecoverableSecurityException] carrying a consent
+     * user approval, delivered as a RecoverableSecurityException carrying a consent
      * dialog. The pending write is stashed so it can be retried once the user agrees.
      */
     private suspend fun performReplace(uri: Uri, result: ShrinkResult): String =
         withContext(Dispatchers.IO) {
-            when (val outcome = OriginalReplacer.replace(this@ShrinkActivity, uri, result)) {
+            when (
+                val outcome = OriginalReplacer.replace(this@ShrinkActivity, uri, result)
+            ) {
                 is ReplaceResult.Success -> getString(R.string.replace_done)
 
                 is ReplaceResult.NeedsPermission -> {
@@ -737,9 +860,11 @@ class ShrinkActivity : AppCompatActivity() {
         // Consent granted: the same write now succeeds.
         lifecycleScope.launch {
             val message = withContext(Dispatchers.IO) {
-                when (OriginalReplacer.replace(
-                    this@ShrinkActivity, pending.first, pending.second
-                )) {
+                when (
+                    OriginalReplacer.replace(
+                        this@ShrinkActivity, pending.first, pending.second
+                    )
+                ) {
                     is ReplaceResult.Success -> getString(R.string.replace_done)
                     is ReplaceResult.Failed,
                     is ReplaceResult.NeedsPermission ->
@@ -749,6 +874,18 @@ class ShrinkActivity : AppCompatActivity() {
             Toast.makeText(this@ShrinkActivity, message, Toast.LENGTH_SHORT).show()
         }
     }
+
+    /** Write a NEW file into the Suotu album, leaving the original untouched. */
+    private suspend fun saveAsNew(result: ShrinkResult): String =
+        withContext(Dispatchers.IO) {
+            val base = "Suotu_${System.currentTimeMillis()}"
+            val uri = MediaStoreSaver.save(this@ShrinkActivity, result, base)
+            if (uri != null) {
+                getString(R.string.saved_as_new, MediaStoreSaver.ALBUM)
+            } else {
+                getString(R.string.save_as_new_failed)
+            }
+        }
 
     private fun sendResult(result: ShrinkResult) {
         val file = ShrinkEngine.writeToCache(this, result)
@@ -786,7 +923,8 @@ class ShrinkActivity : AppCompatActivity() {
     }
 
     @Suppress("DEPRECATION")
-    private inline fun <reified T : android.os.Parcelable> Intent.parcelableArrayListExtra(
+    private inline fun <reified T : android.os.Parcelable>
+        Intent.parcelableArrayListExtra(
         key: String,
     ): ArrayList<T>? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         getParcelableArrayListExtra(key, T::class.java)

@@ -163,4 +163,66 @@
     <string name="replace_done">Original replaced</string>
     <string name="replace_failed">Could not replace the original: %1$s</string>
     <string name="replace_not_supported">This image cannot be replaced in place. Pick it from the gallery or share it to Suotu instead.</string>
+
+    <!-- Quality slider -->
+    <string name="quality_label">Quality</string>
+    <string name="quality_auto">Auto</string>
+    <string name="quality_auto_detail">Auto (%1$d)</string>
+    <string name="quality_manual">Manual %1$d</string>
+    <string name="quality_note_auto">Quality is chosen automatically to fit the size budget.</string>
+    <string name="quality_note_manual">Higher = better looking but larger file. Auto is recommended for screenshots.</string>
+
+    <!-- Annotation -->
+    <string name="annotate">Annotate</string>
+    <string name="annotate_title">Annotate</string>
+    <string name="annotate_tool_brush">Brush</string>
+    <string name="annotate_tool_rect">Rectangle</string>
+    <string name="annotate_tool_circle">Circle</string>
+    <string name="annotate_tool_arrow">Arrow</string>
+    <string name="annotate_tool_text">Text</string>
+    <string name="annotate_tool_blur">Blur</string>
+    <string name="annotate_thickness">Size</string>
+    <string name="annotate_color">Color</string>
+    <string name="annotate_undo">Undo</string>
+    <string name="annotate_clear">Clear all</string>
+    <string name="annotate_apply">Apply</string>
+    <string name="annotate_cancel">Cancel</string>
+    <string name="annotate_hint">Draw on the image. Tap a shape to select it.</string>
+    <string name="annotate_text_hint">Enter text label</string>
+    <string name="annotate_text_ok">Add</string>
+    <string name="annotate_clear_confirm">Remove all annotations?</string>
+    <string name="remove">Remove</string>
+
+    <!-- Collapsible options -->
+    <string name="options">Options</string>
+    <string name="show_options">Show options</string>
+    <string name="hide_options">Hide options</string>
+    <string name="options_summary">%1$d px · %2$s · %3$s</string>
+    <string name="quality_summary_auto">auto q%1$d</string>
+    <string name="quality_summary_manual">q%1$d</string>
+    <string name="saved_percent">%1$d%% smaller</string>
+    <string name="send">Send</string>
+
+    <!-- PNG format -->
+    <string name="format_png">PNG</string>
+
+    <!-- Save menu -->
+    <string name="save">Save</string>
+    <string name="save_overwrite">Overwrite original</string>
+    <string name="save_as_new">Save as new</string>
+    <string name="save_overwrite_desc">Replaces the full-size original</string>
+    <string name="save_as_new_desc">Keeps the original, adds a copy to %1$s</string>
+    <string name="saved_as_new">Saved to %1$s</string>
+    <string name="save_as_new_failed">Could not save a copy</string>
+    <string name="format_webp">WebP</string>
+
+    <!-- Colour picker -->
+    <string name="color_stroke">Line</string>
+    <string name="color_fill">Fill</string>
+    <string name="color_pick_stroke">Line colour</string>
+    <string name="color_pick_fill">Fill colour</string>
+    <string name="color_none">None</string>
+    <string name="color_preview">Preview</string>
+    <string name="ok">OK</string>
+    <string name="color_blur">Blur</string>
 </resources>
