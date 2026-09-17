@@ -26,11 +26,14 @@
     <string name="preset_tiny">最小</string>
     <string name="preset_normal">标准</string>
     <string name="preset_sharp">清晰</string>
+    <string name="hint_micro">无小字</string>
     <string name="hint_tiny">大字 / 照片</string>
     <string name="hint_normal">适合整屏截图</string>
     <string name="hint_sharp">密集文字 / 代码</string>
-    <string name="format_auto">自动（最小）</string>
-    <string name="format_jpeg">仅 JPEG</string>
+    <string name="hint_full">保留像素</string>
+    <string name="format_auto">自动</string>
+    <string name="format_auto_chosen">自动 · %1$s</string>
+    <string name="format_jpeg">JPG</string>
 
     <!-- Settings: auto-shrink -->
     <string name="auto_shrink_title">后台自动压缩</string>
@@ -204,7 +207,6 @@
     <string name="send">发送</string>
 
     <!-- PNG format -->
-    <string name="format_png">PNG</string>
 
     <!-- Save menu -->
     <string name="save">保存</string>

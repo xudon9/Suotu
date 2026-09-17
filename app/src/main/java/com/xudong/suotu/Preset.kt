@@ -19,11 +19,22 @@ import androidx.annotation.StringRes
  *     differ mainly in width; the byte budget is a safety net for photo-like content.
  */
 enum class Preset(
+    /**
+     * Short name. Currently unused by the width chips, which show the pixel number
+     * because it is what the user is actually choosing; kept for the hint text and any
+     * future surface that wants a word instead of a number.
+     */
     @StringRes val labelRes: Int,
     @StringRes val hintRes: Int,
     val targetWidth: Int,
     val budgetBytes: Int,
 ) {
+    /**
+     * Below the measured text floor, so only for shots with no small text at all:
+     * a photo, a big headline, a QR code.
+     */
+    MICRO(R.string.hint_micro, R.string.hint_micro, 400, 35 * 1024),
+
     /** For shots whose text is already large — a dialog, a headline, a photo. */
     TINY(R.string.preset_tiny, R.string.hint_tiny, 540, 60 * 1024),
 
@@ -32,6 +43,12 @@ enum class Preset(
 
     /** Keeps dense content (code, tables, long chat logs) comfortably readable. */
     SHARP(R.string.preset_sharp, R.string.hint_sharp, 960, 250 * 1024),
+
+    /**
+     * Near the native width of a modern phone screenshot, so essentially "shrink the
+     * bytes, keep the pixels". For when the recipient will zoom in.
+     */
+    FULL(R.string.hint_full, R.string.hint_full, 1200, 450 * 1024),
     ;
 
     companion object {
@@ -45,8 +62,13 @@ enum class Preset(
 /** Which container formats the engine is allowed to emit. */
 enum class FormatPolicy(@StringRes val labelRes: Int) {
     /**
-     * Try WebP and JPEG, keep the better result. Measurement showed WebP landing at
-     * roughly half the size of JPEG at equal legibility, so this usually picks WebP.
+     * Encode as both WebP and JPEG and keep the SMALLER file.
+     *
+     * Measurement showed WebP landing at roughly half the size of JPEG at equal
+     * legibility, so this nearly always picks WebP — but the rule is size, not a
+     * preference for a codec. Quality numbers are deliberately NOT compared across
+     * formats: WebP q80 and JPEG q80 are not the same thing, so ranking them against
+     * each other was meaningless.
      */
     AUTO(R.string.format_auto),
 
@@ -60,16 +82,6 @@ enum class FormatPolicy(@StringRes val labelRes: Int) {
 
     /** Force JPEG — maximum compatibility with older clients. */
     JPEG_ONLY(R.string.format_jpeg),
-
-    /**
-     * Force PNG — lossless, so no compression artefacts at all.
-     *
-     * Deliberately not part of AUTO: PNG is typically several times larger than a
-     * lossy encode of the same screenshot, so including it in a "smallest wins" search
-     * would mean it never won and the option would be unreachable. It exists for when
-     * pixel-exactness matters more than size.
-     */
-    PNG_ONLY(R.string.format_png),
     ;
 
     companion object {

@@ -28,23 +28,28 @@ Actions are fixed-size icons, so a long translation cannot squeeze them: **Chang
 **Width** is targeted in absolute pixels, not as a percentage. Readability depends on
 the pixel height of the glyphs, so a fixed 40% is far too aggressive for a full
 1260px-wide capture and meaningless for a small crop. The slider spans 320–1440px with
-the measured presets as quick jumps:
+quick-jump buttons at the measured widths:
 
-| Preset | Width | Use for |
-|--------|-------|---------|
-| 最小 Tiny | 540px | big text, photos |
-| 标准 Normal | 720px | **default** — safe for full screenshots |
-| 清晰 Sharp | 960px | dense text, code, tables |
+| Width | Use for |
+|-------|---------|
+| 400px | no small text at all — a photo, a headline, a QR code |
+| 540px | big text, photos |
+| 720px | **default** — safe for full screenshots |
+| 960px | dense text, code, tables |
+| 1200px | keep the pixels; shrink only the bytes |
 
 **Quality** is automatic by default: binary-searched over 6 steps to land just under a
 byte budget, for both WebP and JPEG, keeping the better result. The chosen value is
 shown (`auto q80`) rather than left a mystery, and a slider overrides it — see the
 caveat under *Why those numbers*.
 
-**Format** offers `Auto`, `WebP`, `JPEG` and `PNG`. Auto tries WebP and JPEG and keeps
-the smaller. PNG is deliberately excluded from Auto: being lossless it is several times
-larger, so in a smallest-wins search it could never win and the option would be
-unreachable. It skips the quality search entirely.
+**Format** offers `Auto`, `WebP` and `JPG`. Auto encodes both and keeps the **smaller
+file**, and then names what it chose — the chip reads `Auto · WebP` — so the outcome is
+visible without reading the stats line.
+
+Auto compares *sizes*, not quality numbers. An earlier version preferred the higher
+quality number among candidates that fit the budget, which contradicted its own label
+and was not meaningful anyway: WebP q80 and JPEG q80 are different codecs' scales.
 
 ## Cropping
 
@@ -165,6 +170,7 @@ python3 tools/test_color_picker.py         # HSV conversion, alpha, transparency
 python3 tools/test_gaussian_blur.py        # kernel, separability, edge clamping
 python3 tools/test_blur_sampling.py        # blur samples from under the shape
 python3 tools/test_blur_perf_model.py      # per-frame drag cost stays constant
+python3 tools/test_auto_format.py          # Auto picks the smaller file
 ```
 
 Several of these exist because they caught a real bug — the crop grab zone being

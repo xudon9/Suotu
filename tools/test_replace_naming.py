@@ -17,8 +17,6 @@ def rename_for_format(name, fmt):
 
     if fmt == "jpg":
         matches = ext in ("jpg", "jpeg")
-    elif fmt == "png":
-        matches = ext == "png"
     else:
         matches = ext == "webp"
     return name if matches else f"{stem}.{fmt}"
@@ -42,11 +40,9 @@ CASES = [
     ("PHOTO.JPEG", "jpg", "PHOTO.JPEG"),
     ("PHOTO.WEBP", "webp", "PHOTO.WEBP"),
 
-    # PNG is lossless and now selectable, so it needs the same treatment.
-    ("Screenshot_20260917_101501.jpg", "png", "Screenshot_20260917_101501.png"),
-    ("shot.png", "png", "shot.png"),
-    ("SHOT.PNG", "png", "SHOT.PNG"),
-    ("shot.webp", "png", "shot.png"),
+    # A .png source re-encoded as a lossy format must take the new extension.
+    ("shot.png", "webp", "shot.webp"),
+    ("SHOT.PNG", "jpg", "SHOT.jpg"),
 
     # Awkward names that must not lose information.
     ("my.holiday.photo.jpg", "webp", "my.holiday.photo.webp"),

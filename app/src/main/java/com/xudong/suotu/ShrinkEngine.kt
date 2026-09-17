@@ -42,16 +42,6 @@ enum class EncodedFormat(val mimeType: String, val extension: String, val label:
     JPEG("image/jpeg", "jpg", "JPEG"),
     WEBP("image/webp", "webp", "WebP"),
 
-    /**
-     * Lossless. Quality is meaningless here, so the search is skipped entirely — see
-     * [ShrinkEngine.searchQuality]. Useful when the recipient must receive pixel-exact
-     * text, at a cost of several times the bytes.
-     */
-    PNG("image/png", "png", "PNG"),
-    ;
-
-    /** True when the encoder ignores the quality parameter. */
-    val isLossless: Boolean get() = this == PNG
 }
 
 /**
@@ -140,13 +130,12 @@ object ShrinkEngine {
         val candidates = when (formatPolicy) {
             FormatPolicy.WEBP_ONLY -> listOf(EncodedFormat.WEBP)
             FormatPolicy.JPEG_ONLY -> listOf(EncodedFormat.JPEG)
-            FormatPolicy.PNG_ONLY -> listOf(EncodedFormat.PNG)
             FormatPolicy.AUTO -> listOf(EncodedFormat.WEBP, EncodedFormat.JPEG)
         }
 
         val best = candidates
             .map { format ->
-                if (forcedQuality != null && !format.isLossless) {
+                if (forcedQuality != null) {
                     // Manual override: encode exactly what was asked for. The budget is
                     // deliberately not enforced here — the user chose this quality, and
                     // silently overriding it would make the slider a lie.
@@ -218,9 +207,19 @@ object ShrinkEngine {
     )
 
     /**
-     * Prefer the candidate that fits the budget; among those that fit, prefer the one
-     * encoded at the higher quality (better fidelity for a comparable size). If neither
-     * fits, take the smaller file.
+     * Auto's choice: the SMALLER file wins.
+     *
+     * This used to prefer the higher quality NUMBER when both candidates fit the budget,
+     * which contradicted the control's own label ("Auto (smallest)") and was not even
+     * meaningful: WebP q80 and JPEG q80 are different codecs' scales, so comparing the
+     * numbers across formats says nothing. In practice both usually landed on q80 and
+     * WebP won on evaluation order, so the result happened to be right — but a JPEG at
+     * q80 against a WebP at q79 would have shipped the LARGER file while claiming to
+     * pick the smallest.
+     *
+     * Budget still takes precedence: a candidate that fits beats one that does not, even
+     * if the one that fits is larger... which cannot happen, but the ordering documents
+     * the intent.
      */
     private fun pickBetter(a: Encoded, b: Encoded, budget: Int): Encoded {
         val aFits = a.bytes.size <= budget
@@ -228,7 +227,6 @@ object ShrinkEngine {
         return when {
             aFits && !bFits -> a
             bFits && !aFits -> b
-            aFits && bFits -> if (a.quality >= b.quality) a else b
             else -> if (a.bytes.size <= b.bytes.size) a else b
         }
     }
@@ -248,11 +246,6 @@ object ShrinkEngine {
      * ~6 encodes of an 800px image is a few hundred milliseconds.
      */
     private fun searchQuality(bitmap: Bitmap, format: EncodedFormat, budget: Int): Encoded {
-        // Lossless formats ignore quality, so searching would encode the same bytes
-        // six times over.
-        if (format.isLossless) {
-            return Encoded(encode(bitmap, format, 100), 100, format)
-        }
         var low = MIN_QUALITY
         var high = MAX_QUALITY
         var bestFitting: Encoded? = null
@@ -296,8 +289,6 @@ object ShrinkEngine {
                     @Suppress("DEPRECATION")
                     Bitmap.CompressFormat.WEBP
                 }
-
-            EncodedFormat.PNG -> Bitmap.CompressFormat.PNG
         }
         bitmap.compress(compressFormat, quality, out)
         return out.toByteArray()

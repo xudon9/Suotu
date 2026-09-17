@@ -122,7 +122,6 @@ object OriginalReplacer {
         val matches = when (format) {
             EncodedFormat.JPEG -> ext == "jpg" || ext == "jpeg"
             EncodedFormat.WEBP -> ext == "webp"
-            EncodedFormat.PNG -> ext == "png"
         }
         return if (matches) name else "$stem.${format.extension}"
     }

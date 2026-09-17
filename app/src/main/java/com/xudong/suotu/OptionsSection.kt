@@ -5,6 +5,8 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -39,6 +41,7 @@ import androidx.compose.ui.unit.sp
  * Collapsed, the header still states the *effective* settings, so nothing is hidden,
  * merely folded.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun OptionsSection(
     expanded: Boolean,
@@ -49,6 +52,8 @@ fun OptionsSection(
     manualQuality: Int?,
     actualQuality: Int?,
     onQualityChange: (Int?) -> Unit,
+    /** Format the engine settled on, shown on the Auto chip. Null before the first run. */
+    actualFormat: String?,
     policy: FormatPolicy,
     onPolicyChange: (FormatPolicy) -> Unit,
 ) {
@@ -91,7 +96,13 @@ fun OptionsSection(
                                 )
                                 else -> stringResource(R.string.quality_auto)
                             },
-                            stringResource(policy.labelRes),
+                            // The summary reports the format in EFFECT, so a folded
+                            // card still tells you what you are about to send.
+                            if (policy == FormatPolicy.AUTO && actualFormat != null) {
+                                actualFormat
+                            } else {
+                                stringResource(policy.labelRes)
+                            },
                         ),
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
@@ -140,7 +151,14 @@ fun OptionsSection(
                         valueRange = SizeRange.MIN_WIDTH.toFloat()..
                             SizeRange.MAX_WIDTH.toFloat(),
                     )
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    // FlowRow, not Row: five width chips plus their padding can overflow
+                    // a narrow screen, and a plain Row would silently push the last one
+                    // off the edge — which is exactly how the Blur tool once became
+                    // unreachable.
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
                         SizeRange.quickPicks.forEach { preset ->
                             FilterChip(
                                 selected = width == preset.targetWidth,
@@ -207,7 +225,8 @@ fun OptionsSection(
 
                     Spacer(Modifier.height(6.dp))
 
-                    // Format
+                    // Format. The Auto chip names the format it actually chose, so the
+                    // outcome is visible without having to read the stats line.
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         FormatPolicy.entries.forEach { f ->
                             FilterChip(
@@ -215,7 +234,16 @@ fun OptionsSection(
                                 onClick = { onPolicyChange(f) },
                                 label = {
                                     Text(
-                                        stringResource(f.labelRes),
+                                        if (f == FormatPolicy.AUTO &&
+                                            actualFormat != null
+                                        ) {
+                                            stringResource(
+                                                R.string.format_auto_chosen,
+                                                actualFormat,
+                                            )
+                                        } else {
+                                            stringResource(f.labelRes)
+                                        },
                                         fontSize = 12.sp,
                                     )
                                 },

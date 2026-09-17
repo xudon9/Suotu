@@ -520,6 +520,7 @@ class ShrinkActivity : AppCompatActivity() {
                     manualQuality = manualQuality,
                     actualQuality = (state as? UiState.Ready)?.result?.quality,
                     onQualityChange = onQualityChange,
+                    actualFormat = (state as? UiState.Ready)?.result?.format?.label,
                     policy = policy,
                     onPolicyChange = onPolicyChange,
                 )
