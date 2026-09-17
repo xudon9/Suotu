@@ -1,7 +1,9 @@
 package com.xudong.suotu
 
+import android.app.Activity
 import android.content.Intent
 import android.graphics.BitmapFactory
+import android.widget.Toast
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -26,6 +28,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -44,6 +47,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -59,6 +63,8 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -72,6 +78,13 @@ import kotlinx.coroutines.withContext
  *  - opened with nothing recent, which offers a manual picker.
  */
 class ShrinkActivity : AppCompatActivity() {
+
+    /** Write awaiting the system's media-edit consent dialog. */
+    private var pendingReplace: Pair<Uri, ShrinkResult>? = null
+
+    private companion object {
+        const val REQUEST_REPLACE_CONSENT = 9101
+    }
 
     private sealed interface UiState {
         data class Empty(val reason: String) : UiState
@@ -103,6 +116,8 @@ class ShrinkActivity : AppCompatActivity() {
                 var crop by remember { mutableStateOf(CropRect.FULL) }
                 var cropping by remember { mutableStateOf(false) }
                 var fullscreen by remember { mutableStateOf(false) }
+                var confirmReplace by remember { mutableStateOf(false) }
+                var toast by remember { mutableStateOf<String?>(null) }
                 var sourceImage by remember { mutableStateOf<ImageBitmap?>(null) }
                 var state by remember {
                     mutableStateOf<UiState>(
@@ -316,7 +331,16 @@ class ShrinkActivity : AppCompatActivity() {
                                 is UiState.Ready -> {
                                     ResultCard(
                                         result = s.result,
+                                        crop = crop,
                                         onTapPreview = { fullscreen = true },
+                                        onSelect = { selection ->
+                                            // The drawing happened on the already
+                                            // cropped preview, so compose rather than
+                                            // replace — otherwise a second selection
+                                            // would jump somewhere unrelated.
+                                            crop = crop.compose(selection)
+                                        },
+                                        onClearSelection = { crop = CropRect.FULL },
                                     )
                                     Spacer(Modifier.height(12.dp))
                                     Row(
@@ -329,11 +353,25 @@ class ShrinkActivity : AppCompatActivity() {
                                             modifier = Modifier.weight(1f),
                                         ) { Text(stringResource(R.string.change)) }
 
+                                        // Handle-based editor stays available for
+                                        // precise tweaks after a rough draw.
                                         OutlinedButton(
                                             onClick = { cropping = true },
                                             enabled = sourceImage != null,
                                             modifier = Modifier.weight(1f),
-                                        ) { Text(stringResource(R.string.crop)) }
+                                        ) { Text(stringResource(R.string.adjust)) }
+
+                                        // Destructive, so it is an outlined button
+                                        // next to Send rather than a second primary.
+                                        OutlinedButton(
+                                            onClick = { confirmReplace = true },
+                                            enabled = source?.let {
+                                                OriginalReplacer.isMediaStoreUri(it)
+                                            } == true,
+                                            modifier = Modifier.weight(1.2f),
+                                        ) {
+                                            Text(stringResource(R.string.replace_original))
+                                        }
 
                                         Button(
                                             onClick = { sendResult(s.result) },
@@ -350,6 +388,78 @@ class ShrinkActivity : AppCompatActivity() {
                                 }
                             }
                         }
+                    }
+                }
+
+                // Destructive and unrecoverable, so it always asks first.
+                if (confirmReplace) {
+                    val ready = state as? UiState.Ready
+                    val uri = source
+                    if (ready != null && uri != null) {
+                        val currentName = remember(uri) {
+                            OriginalReplacer.queryName(context, uri)
+                        }
+                        val newName = currentName?.let {
+                            OriginalReplacer.renameForFormat(it, ready.result.format)
+                        }
+                        val scope = rememberCoroutineScope()
+
+                        AlertDialog(
+                            onDismissRequest = { confirmReplace = false },
+                            title = {
+                                Text(stringResource(R.string.replace_confirm_title))
+                            },
+                            text = {
+                                Column {
+                                    Text(
+                                        stringResource(
+                                            R.string.replace_confirm_body,
+                                            ready.result.format.label,
+                                            formatBytes(ready.result.sourceBytes),
+                                            formatBytes(ready.result.outputBytes),
+                                        )
+                                    )
+                                    // Warn when the extension has to change, so the
+                                    // file does not silently appear under a new name.
+                                    if (newName != null && newName != currentName) {
+                                        Spacer(Modifier.height(10.dp))
+                                        Text(
+                                            stringResource(
+                                                R.string.replace_confirm_rename,
+                                                newName,
+                                            ),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme
+                                                .onSurfaceVariant,
+                                        )
+                                    }
+                                }
+                            },
+                            confirmButton = {
+                                TextButton(onClick = {
+                                    confirmReplace = false
+                                    scope.launch {
+                                        toast = performReplace(uri, ready.result)
+                                    }
+                                }) {
+                                    Text(stringResource(R.string.replace_confirm_ok))
+                                }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = { confirmReplace = false }) {
+                                    Text(stringResource(R.string.cancel))
+                                }
+                            },
+                        )
+                    } else {
+                        confirmReplace = false
+                    }
+                }
+
+                toast?.let { message ->
+                    LaunchedEffect(message) {
+                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                        toast = null
                     }
                 }
 
@@ -459,13 +569,20 @@ class ShrinkActivity : AppCompatActivity() {
     }
 
     @Composable
-    private fun ResultCard(result: ShrinkResult, onTapPreview: () -> Unit) {
+    private fun ResultCard(
+        result: ShrinkResult,
+        crop: CropRect,
+        onTapPreview: () -> Unit,
+        onSelect: (CropRect) -> Unit,
+        onClearSelection: () -> Unit,
+    ) {
         Card(Modifier.fillMaxWidth()) {
             Column {
                 val bitmap = remember(result) {
                     BitmapFactory.decodeByteArray(result.bytes, 0, result.bytes.size)
                 }
                 if (bitmap != null) {
+                    val lasso = rememberLassoState()
                     Image(
                         bitmap = bitmap.asImageBitmap(),
                         contentDescription = null,
@@ -473,17 +590,47 @@ class ShrinkActivity : AppCompatActivity() {
                             .fillMaxWidth()
                             .height(240.dp)
                             .background(MaterialTheme.colorScheme.previewBackdrop)
-                            .clickable { onTapPreview() },
+                            .clickable { onTapPreview() }
+                            // Draw-to-select sits directly on the preview: a drag picks
+                            // an area, a plain tap still opens the fullscreen viewer.
+                            .drawLasso(
+                                state = lasso,
+                                imageWidth = result.width,
+                                imageHeight = result.height,
+                                enabled = true,
+                                onSelected = onSelect,
+                            ),
                         contentScale = ContentScale.Fit,
                     )
                 }
 
                 Column(Modifier.padding(16.dp)) {
-                    Text(
-                        stringResource(R.string.preview_fullscreen),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            if (crop.isFullFrame) {
+                                stringResource(R.string.draw_hint)
+                            } else {
+                                stringResource(
+                                    R.string.draw_selected,
+                                    (result.sourceWidth * crop.width).toInt(),
+                                    (result.sourceHeight * crop.height).toInt(),
+                                )
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (crop.isFullFrame) {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            } else {
+                                MaterialTheme.colorScheme.primary
+                            },
+                            modifier = Modifier.weight(1f),
+                        )
+                        // Only offered when there is something to clear.
+                        if (!crop.isFullFrame) {
+                            TextButton(onClick = onClearSelection) {
+                                Text(stringResource(R.string.clear_selection))
+                            }
+                        }
+                    }
                     Spacer(Modifier.height(10.dp))
                     Row(Modifier.fillMaxWidth()) {
                         StatColumn(
@@ -544,6 +691,62 @@ class ShrinkActivity : AppCompatActivity() {
                 fontFamily = FontFamily.Monospace,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        }
+    }
+
+    /**
+     * Overwrite the original, asking the system for consent if required.
+     *
+     * Android 10+ refuses to let an app modify media it did not create without explicit
+     * user approval, delivered as a [RecoverableSecurityException] carrying a consent
+     * dialog. The pending write is stashed so it can be retried once the user agrees.
+     */
+    private suspend fun performReplace(uri: Uri, result: ShrinkResult): String =
+        withContext(Dispatchers.IO) {
+            when (val outcome = OriginalReplacer.replace(this@ShrinkActivity, uri, result)) {
+                is ReplaceResult.Success -> getString(R.string.replace_done)
+
+                is ReplaceResult.NeedsPermission -> {
+                    pendingReplace = uri to result
+                    withContext(Dispatchers.Main) {
+                        OriginalReplacer.requestConsent(
+                            this@ShrinkActivity,
+                            outcome.intentSender,
+                            REQUEST_REPLACE_CONSENT,
+                        )
+                    }
+                    "" // No message: the system dialog is now in front of the user.
+                }
+
+                is ReplaceResult.Failed -> getString(
+                    R.string.replace_failed, outcome.reason
+                )
+            }
+        }
+
+    @Deprecated("Needed for startIntentSenderForResult consent callback")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        @Suppress("DEPRECATION")
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode != REQUEST_REPLACE_CONSENT) return
+
+        val pending = pendingReplace ?: return
+        pendingReplace = null
+        if (resultCode != Activity.RESULT_OK) return
+
+        // Consent granted: the same write now succeeds.
+        lifecycleScope.launch {
+            val message = withContext(Dispatchers.IO) {
+                when (OriginalReplacer.replace(
+                    this@ShrinkActivity, pending.first, pending.second
+                )) {
+                    is ReplaceResult.Success -> getString(R.string.replace_done)
+                    is ReplaceResult.Failed,
+                    is ReplaceResult.NeedsPermission ->
+                        getString(R.string.replace_failed, "denied")
+                }
+            }
+            Toast.makeText(this@ShrinkActivity, message, Toast.LENGTH_SHORT).show()
         }
     }
 
