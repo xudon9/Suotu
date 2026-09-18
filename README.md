@@ -1,10 +1,27 @@
-# 缩图 Suotu
+<p align="center">
+  <img src="docs/logo.png" alt="Suotu" width="128">
+</p>
 
-Shrink Android screenshots before sharing them to WeChat / Telegram.
+<h1 align="center">缩图 Suotu</h1>
+
+<p align="center">
+  Shrink Android screenshots and photos before sharing them to WeChat / Telegram.
+</p>
 
 Replaces the manual loop of *crop → resize to ~40% → nudge JPEG quality until the file
 is small but the text still reads* with a couple of taps, choosing the settings from
 measurement rather than guesswork.
+
+<p align="center">
+  <img src="docs/screenshot-main.webp" alt="Main screen: a 2.2 MB photo shrunk to 18 KB" width="270">
+  &nbsp;&nbsp;
+  <img src="docs/screenshot-annotate.webp" alt="Annotation: a circle drawn on the photo" width="270">
+</p>
+
+<p align="center">
+  <em>Left: 2.2 MB → 18 KB, 99% smaller, format chosen automatically.
+  Right: annotating before sending.</em>
+</p>
 
 ## Flow
 
