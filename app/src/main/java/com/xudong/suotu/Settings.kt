@@ -7,10 +7,6 @@ class Settings(context: Context) {
 
     private val prefs = context.getSharedPreferences("suotu", Context.MODE_PRIVATE)
 
-    var preset: Preset
-        get() = Preset.fromName(prefs.getString(KEY_PRESET, null))
-        set(value) = prefs.edit().putString(KEY_PRESET, value.name).apply()
-
     var formatPolicy: FormatPolicy
         get() = FormatPolicy.fromName(prefs.getString(KEY_FORMAT, null))
         set(value) = prefs.edit().putString(KEY_FORMAT, value.name).apply()
@@ -109,7 +105,6 @@ class Settings(context: Context) {
         /** Above ~95 the extra bytes buy nothing visible. */
         const val QUALITY_MAX = 95
 
-        private const val KEY_PRESET = "preset"
         private const val KEY_WIDTH = "output_width"
         private const val KEY_FORMAT = "format"
         private const val KEY_AUTO = "auto_shrink"

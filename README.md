@@ -171,6 +171,7 @@ python3 tools/test_gaussian_blur.py        # kernel, separability, edge clamping
 python3 tools/test_blur_sampling.py        # blur samples from under the shape
 python3 tools/test_blur_perf_model.py      # per-frame drag cost stays constant
 python3 tools/test_auto_format.py          # Auto picks the smaller file
+python3 tools/test_settings_consistency.py # watcher and UI honour the same settings
 ```
 
 Several of these exist because they caught a real bug — the crop grab zone being

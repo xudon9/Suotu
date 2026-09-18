@@ -95,8 +95,20 @@ class ScreenshotWatcherJob : JobService() {
         if (settings.wasProcessed(name)) return false
 
         return try {
+            // Use the SAME settings as the interactive path.
+            //
+            // This previously called a preset-based overload, which meant the background
+            // watcher silently ignored the width slider, the quality override and every
+            // other choice made in the UI: it always produced 720px because that is the
+            // default preset. Anything the user sets should apply here too — a setting
+            // that only affects one of two paths is worse than no setting.
             val result = ShrinkEngine.shrink(
-                this, uri, settings.preset, settings.formatPolicy
+                context = this,
+                uri = uri,
+                targetWidth = settings.outputWidth,
+                budgetBytes = SizeRange.budgetFor(settings.outputWidth),
+                formatPolicy = settings.formatPolicy,
+                forcedQuality = settings.manualQuality,
             )
             val saved = MediaStoreSaver.save(this, result, name) ?: return false
 

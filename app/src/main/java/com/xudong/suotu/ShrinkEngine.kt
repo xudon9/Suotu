@@ -161,15 +161,10 @@ object ShrinkEngine {
         return result
     }
 
-    /** Convenience overload for the background watcher, which works in presets. */
-    fun shrink(
-        context: Context,
-        uri: Uri,
-        preset: Preset,
-        formatPolicy: FormatPolicy,
-    ): ShrinkResult = shrink(
-        context, uri, preset.targetWidth, preset.budgetBytes, formatPolicy, null
-    )
+    // A preset-based convenience overload used to live here for the background
+    // watcher. It is deliberately gone: it was the reason the watcher ignored the
+    // width slider and the quality override, always emitting the default preset's
+    // 720px. One entry point means the two paths cannot drift apart again.
 
     /**
      * A modest-resolution copy of the source, for the crop canvas.
