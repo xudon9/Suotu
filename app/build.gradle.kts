@@ -11,8 +11,15 @@ android {
         applicationId = "com.xudong.suotu"
         minSdk = 29
         targetSdk = 37
-        versionCode = 1
-        versionName = "1.0"
+        // Bump this on every build you install anywhere.
+        //
+        // Android (and vivo's launcher especially) caches an app's icon keyed on
+        // package + versionCode. Reinstalling with an unchanged versionCode leaves the
+        // cache untouched, so a corrected icon keeps rendering as the old one — which
+        // cost real debugging time: the new drawable was verifiably inside the APK on
+        // the device while the notification still showed the previous mark.
+        versionCode = 2
+        versionName = "1.1"
     }
 
     buildTypes {
