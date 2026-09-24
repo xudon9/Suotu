@@ -117,7 +117,27 @@ When overwriting, the file name follows the actual format — writing WebP bytes
 when the name will change. Android 10+ requires user consent to modify media the app did
 not create, which is surfaced and the write retried.
 
-## Watch rules (configurable)
+## Watching for screenshots
+
+Off by default. When on, the watcher is woken by MediaStore events — nothing polls.
+
+There are two ways it can behave, and they differ in whether files appear in your
+gallery without asking:
+
+| Mode | On detection | Best when |
+|---|---|---|
+| **Shrink it straight away** (default) | The small copy is written to the gallery and a notification offers to send it | You send most screenshots you take |
+| **Just tell me** | Nothing is decoded, encoded or written; a notification with a thumbnail asks first | You send only some of them |
+
+In "Just tell me" mode, tapping the notification does **not** open the app. It shrinks
+and goes straight to the share sheet, with a small progress card in between, because you
+have already said what you want. The result goes to the share cache rather than your
+gallery — you asked to *send* that shot, not to keep another copy.
+
+Both notifications carry a thumbnail, so you can tell which screenshot is being offered.
+The eager one shows the shrunk *result*, since that is what tapping will send.
+
+### Watch rules (configurable)
 
 Two **independent** lists of `(folder, filename regex)` rules, because the folders worth
 shrinking unattended are not the folders worth offering on demand:
@@ -258,7 +278,8 @@ app/src/main/java/com/xudong/suotu/
   MediaQuery.kt            newest-matching-image lookup
   WatchRule.kt             folder + regex rules
   FolderScanner.kt         folder discovery and regex testing
-  ScreenshotWatcherJob.kt  event-driven background shrinking
+  ScreenshotWatcherJob.kt  event-driven watcher: shrink now, or just offer
+  QuickShrinkActivity.kt   on-demand path: shrink and share with no UI
   BootReceiver.kt          re-arms the watcher after a reboot
   ShrinkNotifier.kt        silent "copy ready" notification
   RuleListEditor.kt        watch-rule list editing
