@@ -27,6 +27,8 @@ import androidx.compose.material3.Divider
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.RadioButton
+import androidx.compose.foundation.clickable
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -100,12 +102,47 @@ class SettingsActivity : AppCompatActivity() {
     }
 }
 
+/**
+ * One watch-mode choice: a radio, a title and a line saying what it actually does.
+ *
+ * The description is not decoration. The two modes differ in whether files appear in
+ * your gallery without asking, which is exactly the kind of thing a bare label like
+ * "eager" would hide.
+ */
+@Composable
+private fun WatchModeOption(
+    selected: Boolean,
+    titleRes: Int,
+    descRes: Int,
+    onClick: () -> Unit,
+) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        RadioButton(selected = selected, onClick = onClick)
+        Spacer(Modifier.width(4.dp))
+        Column(Modifier.weight(1f).padding(top = 12.dp)) {
+            Text(stringResource(titleRes), style = MaterialTheme.typography.bodyMedium)
+            Text(
+                stringResource(descRes),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
 /** The silent background watcher and the folders it watches. */
 @Composable
 private fun AutoShrinkSection(settings: Settings) {
     val context = LocalContext.current
     var enabled by remember { mutableStateOf(settings.autoShrinkEnabled) }
     var notify by remember { mutableStateOf(settings.autoShrinkNotify) }
+    var eager by remember { mutableStateOf(settings.autoShrinkEager) }
     var rules by remember { mutableStateOf(settings.autoShrinkRules) }
     var denied by remember { mutableStateOf(false) }
 
@@ -151,6 +188,37 @@ private fun AutoShrinkSection(settings: Settings) {
                         } else {
                             permissionLauncher.launch(requiredPermissions())
                         }
+                    },
+                )
+            }
+
+            // Mode: only meaningful while watching is on, so it appears with it rather
+            // than sitting greyed out asking to be reasoned about.
+            if (enabled) {
+                Spacer(Modifier.height(14.dp))
+                Text(
+                    stringResource(R.string.auto_mode_title),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                )
+                Spacer(Modifier.height(6.dp))
+                WatchModeOption(
+                    selected = eager,
+                    titleRes = R.string.auto_mode_eager,
+                    descRes = R.string.auto_mode_eager_desc,
+                    onClick = {
+                        eager = true
+                        settings.autoShrinkEager = true
+                    },
+                )
+                Spacer(Modifier.height(4.dp))
+                WatchModeOption(
+                    selected = !eager,
+                    titleRes = R.string.auto_mode_ask,
+                    descRes = R.string.auto_mode_ask_desc,
+                    onClick = {
+                        eager = false
+                        settings.autoShrinkEager = false
                     },
                 )
             }

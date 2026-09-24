@@ -228,4 +228,15 @@
     <string name="color_preview">Preview</string>
     <string name="ok">OK</string>
     <string name="color_blur">Blur</string>
+    <!-- Watcher mode -->
+    <string name="auto_mode_title">When a screenshot appears</string>
+    <string name="auto_mode_eager">Shrink it straight away</string>
+    <string name="auto_mode_eager_desc">A small copy is saved to your gallery and a notification offers to send it.</string>
+    <string name="auto_mode_ask">Just tell me</string>
+    <string name="auto_mode_ask_desc">Nothing is saved until you tap the notification. Best if you only send some of your screenshots.</string>
+    <string name="notif_offer_title">Shrink this screenshot?</string>
+    <string name="notif_offer_text">%1$s \u00b7 tap to shrink and send</string>
+    <string name="notif_offer_text_plain">Tap to shrink and send</string>
+    <string name="notif_offer_hint">Nothing saved yet</string>
+    <string name="quick_shrinking">Shrinking…</string>
 </resources>

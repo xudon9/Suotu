@@ -59,6 +59,15 @@
             android:parentActivityName=".ShrinkActivity"
             android:theme="@style/Theme.Suotu" />
 
+        <!-- Quick path for on-demand mode: shrinks and shares without the main screen.
+             Exported="false": it is only ever started from our own notification. -->
+        <activity
+            android:name=".QuickShrinkActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@style/Theme.Suotu.Translucent" />
+
         <activity
             android:name=".SettingsActivity"
             android:exported="false"

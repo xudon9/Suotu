@@ -43,6 +43,18 @@ class Settings(context: Context) {
         set(value) = prefs.edit().putBoolean(KEY_AUTO, value).apply()
 
     /** Whether the silent "copy ready" notification is posted. */
+    /**
+     * Eager (true) shrinks in the background as soon as a screenshot appears; on-demand
+     * (false) only offers, and does the work when the notification is tapped.
+     *
+     * Defaults to eager because that is what the watcher has always done, and silently
+     * changing an existing user's behaviour on update would be worse than a slightly
+     * less cautious default.
+     */
+    var autoShrinkEager: Boolean
+        get() = prefs.getBoolean(KEY_AUTO_EAGER, true)
+        set(value) = prefs.edit().putBoolean(KEY_AUTO_EAGER, value).apply()
+
     var autoShrinkNotify: Boolean
         get() = prefs.getBoolean(KEY_AUTO_NOTIFY, true)
         set(value) = prefs.edit().putBoolean(KEY_AUTO_NOTIFY, value).apply()
@@ -109,6 +121,7 @@ class Settings(context: Context) {
         private const val KEY_FORMAT = "format"
         private const val KEY_AUTO = "auto_shrink"
         private const val KEY_AUTO_NOTIFY = "auto_shrink_notify"
+        private const val KEY_AUTO_EAGER = "auto_shrink_eager"
         private const val KEY_AUTO_RULES = "auto_shrink_rules"
         private const val KEY_OPEN_RULES = "open_rules"
         private const val KEY_OPEN_RECENCY = "open_recency_seconds"

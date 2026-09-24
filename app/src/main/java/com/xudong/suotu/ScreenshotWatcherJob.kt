@@ -90,9 +90,22 @@ class ScreenshotWatcherJob : JobService() {
         return processItem(uri, name, settings)
     }
 
-    /** Shrink and save; assumes the rules already matched. */
+    /** Act on a matched image: shrink it now, or just offer to. */
     private fun processItem(uri: Uri, name: String, settings: Settings): Boolean {
         if (settings.wasProcessed(name)) return false
+
+        // On-demand: notify and stop. Nothing is decoded, encoded or written until the
+        // user taps — which is the whole point, since most screenshots are never sent.
+        //
+        // The name is marked processed even though no file was produced: "processed"
+        // here means "already acted on", and re-offering the same screenshot every time
+        // MediaStore stirs would be worse than not offering at all.
+        if (!settings.autoShrinkEager) {
+            settings.markProcessed(name)
+            ShrinkNotifier.notifyAvailable(this, uri, sourceBytesOf(uri))
+            Log.i(TAG, "offered $name")
+            return true
+        }
 
         return try {
             // Use the SAME settings as the interactive path.
@@ -123,6 +136,13 @@ class ScreenshotWatcherJob : JobService() {
             false
         }
     }
+
+    /** Source size for the offer text; 0 when MediaStore will not say. */
+    private fun sourceBytesOf(uri: Uri): Long = runCatching {
+        contentResolver.query(
+            uri, arrayOf(android.provider.MediaStore.Images.Media.SIZE), null, null, null
+        )?.use { c -> if (c.moveToFirst()) c.getLong(0) else 0L } ?: 0L
+    }.getOrDefault(0L)
 
     private fun resolveNameAndPath(uri: Uri): Pair<String, String?>? =
         runCatching {

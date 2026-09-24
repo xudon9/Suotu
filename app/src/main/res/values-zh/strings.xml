@@ -227,4 +227,15 @@
     <string name="color_preview">预览</string>
     <string name="ok">确定</string>
     <string name="color_blur">模糊</string>
+    <!-- Watcher mode -->
+    <string name="auto_mode_title">检测到新截图时</string>
+    <string name="auto_mode_eager">立即缩小</string>
+    <string name="auto_mode_eager_desc">自动保存小图到相册，并通知你可以发送。</string>
+    <string name="auto_mode_ask">先问我</string>
+    <string name="auto_mode_ask_desc">点击通知后才会处理，不会自动保存。适合只发送部分截图的情况。</string>
+    <string name="notif_offer_title">要缩小这张截图吗？</string>
+    <string name="notif_offer_text">%1$s \u00b7 点击缩小并发送</string>
+    <string name="notif_offer_text_plain">点击缩小并发送</string>
+    <string name="notif_offer_hint">尚未保存</string>
+    <string name="quick_shrinking">正在缩小…</string>
 </resources>
