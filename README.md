@@ -5,7 +5,8 @@
 <h1 align="center">缩图 Suotu</h1>
 
 <p align="center">
-  Shrink Android screenshots and photos before sharing them to WeChat / Telegram.
+  Shrink Android screenshots and photos before sharing them anywhere.<br>
+  <a href="README.md">English</a> · <a href="README.zh-CN.md">简体中文</a>
 </p>
 
 Replaces the manual loop of *crop → resize to ~40% → nudge JPEG quality until the file
@@ -26,16 +27,20 @@ measurement rather than guesswork.
 ## Flow
 
 1. Take a screenshot.
-2. Open Suotu — the newest screenshot loads automatically — or use **Share → Suotu**.
+2. Open Suotu — the newest screenshot loads automatically — or use **Share → Suotu** from
+   any gallery or file manager.
 3. Optionally draw on the preview to crop, or annotate.
-4. Tap **Send** and pick the app, or **Save** to keep a copy.
+4. Tap **Send** and pick an app, or **Save** to keep a copy.
+
+Suotu registers as a share target, so it works from any app and sends to any app. It
+does not care which messaging client you use.
 
 ## The main screen
 
 The preview gets the space, because the image is what you are judging. Width, quality
 and format live in a collapsed **Options** card whose header states the settings in
-force (e.g. `540 px · auto q80 · Auto`), so nothing is hidden — only folded. It starts
-expanded when there is no image yet and folds once one loads.
+force (e.g. `540 px · auto q80 · Auto · WebP`), so nothing is hidden — only folded. It
+starts expanded when there is no image yet and folds once one loads.
 
 Actions are fixed-size icons, so a long translation cannot squeeze them: **Change**,
 **Adjust** (crop), **Annotate**, **Save**, **Send**.
@@ -222,9 +227,11 @@ Each keeps a note of what it is defending against.
 
 ## Caveat worth knowing
 
-WeChat re-compresses images on send unless you tick **原图 / original**. The wins here
-are therefore your *storage*, your *upload data*, and a predictable result — not
-necessarily the recipient's download size. Send as a file to preserve it exactly.
+Most messaging apps re-compress images on send unless you explicitly choose to send the
+**original** — WeChat has a 原图 option, others have an equivalent. The wins here are
+therefore your *storage*, your *upload data*, and a predictable result — not necessarily
+the recipient's download size. Sending as a **file** rather than as a photo preserves it
+exactly.
 
 ## Build
 
@@ -254,9 +261,12 @@ Notes:
   alongside it fails with *"extension with name 'kotlin' already registered"*. Only
   `com.android.application` + `org.jetbrains.kotlin.plugin.compose` are applied.
 - `apksigner` needs `java` on `PATH` or it fails silently with no output.
-- On vivo devices `adb install` shows a 安全守护 dialog that must be confirmed on the
-  phone; it is auto-rejected if the screen is asleep, which surfaces as
-  `INSTALL_FAILED_ABORTED: User rejected permissions`.
+- On some Chinese ROMs (vivo, for example) `adb install` shows a 安全守护 dialog that
+  must be confirmed on the phone; it is auto-rejected if the screen is asleep, which
+  surfaces as `INSTALL_FAILED_ABORTED: User rejected permissions`.
+- **Bump `versionCode` for every build you install.** Some launchers cache an app's icon
+  keyed on package + versionCode, so reinstalling an unchanged version can keep showing
+  the previous icon even after the drawable inside the APK has changed.
 
 ## Layout
 
@@ -285,7 +295,7 @@ app/src/main/java/com/xudong/suotu/
   ScreenshotWatcherJob.kt  event-driven watcher: shrink now, or just offer
   QuickShrinkActivity.kt   on-demand path: shrink and share with no UI
   BootReceiver.kt          re-arms the watcher after a reboot
-  ShrinkNotifier.kt        silent "copy ready" notification
+  ShrinkNotifier.kt        silent "copy ready" / "shrink this?" notifications
   RuleListEditor.kt        watch-rule list editing
   FolderDialogs.kt         folder picker and regex tester
   HelpActivity.kt          in-app help and About
@@ -308,8 +318,7 @@ The rest are declared only for opt-in features:
   permission.
 - `READ_EXTERNAL_STORAGE` — the pre-Android 13 equivalent of the above, declared with
   `maxSdkVersion` so it is not requested on newer releases.
-- `POST_NOTIFICATIONS` — for the silent "copy ready" notification from the background
-  watcher.
+- `POST_NOTIFICATIONS` — for the watcher's notifications.
 - `RECEIVE_BOOT_COMPLETED` — to re-arm the background watcher after a reboot, since a
   scheduled job does not survive one.
 
