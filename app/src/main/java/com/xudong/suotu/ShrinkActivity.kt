@@ -2,6 +2,7 @@ package com.xudong.suotu
 
 import android.app.Activity
 import android.content.Intent
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Build
@@ -51,6 +52,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -254,12 +256,34 @@ class ShrinkActivity : AppCompatActivity() {
 
                 val img = sourceImage
 
+                // Annotations are stored in FULL-IMAGE normalised coordinates — the
+                // renderer crops afterwards — so the editor has always been handed the
+                // whole bitmap. That made the screen disagree with the work: after
+                // cropping, annotating showed the uncropped shot (and everything you
+                // drew sat inside a region you had already cut away).
+                //
+                // Handing the editor the CROPPED bitmap fixes the view without touching
+                // the coordinate system: the editor normalises against whatever bitmap
+                // it is given, and AnnotationRenderer maps those onto the crop rect.
+                // Bitmap.createBitmap shares pixel data rather than copying it, so this
+                // is cheap — but not free, hence keying it on the crop rather than
+                // recomputing every recomposition.
+                val annotateImage = remember(img, crop) {
+                    img?.let { full ->
+                        if (crop.isFullFrame) {
+                            full
+                        } else {
+                            croppedPreview(full, crop)
+                        }
+                    }
+                }
+
                 when {
-                    annotating && img != null -> FullScreenEditor(
+                    annotating && annotateImage != null -> FullScreenEditor(
                         titleRes = R.string.annotate_title,
                     ) {
                         AnnotationEditor(
-                            image = img,
+                            image = annotateImage,
                             state = annotations,
                             onStateChange = { annotations = it },
                             onApply = { annotating = false },
@@ -887,6 +911,26 @@ class ShrinkActivity : AppCompatActivity() {
                 getString(R.string.save_as_new_failed)
             }
         }
+
+    /**
+     * The cropped region of [full], for the annotation preview.
+     *
+     * Mirrors ShrinkEngine.applyCrop deliberately, including returning [full] untouched
+     * for a full-frame rect: createBitmap would allocate a second bitmap that shares the
+     * same pixels for no visible gain.
+     */
+    private fun croppedPreview(full: ImageBitmap, crop: CropRect): ImageBitmap {
+        val src = full.asAndroidBitmap()
+        val x = (src.width * crop.left).toInt().coerceIn(0, src.width - 1)
+        val y = (src.height * crop.top).toInt().coerceIn(0, src.height - 1)
+        val w = (src.width * crop.width).toInt().coerceIn(1, src.width - x)
+        val h = (src.height * crop.height).toInt().coerceIn(1, src.height - y)
+        return if (x == 0 && y == 0 && w == src.width && h == src.height) {
+            full
+        } else {
+            Bitmap.createBitmap(src, x, y, w, h).asImageBitmap()
+        }
+    }
 
     private fun sendResult(result: ShrinkResult) {
         val file = ShrinkEngine.writeToCache(this, result)

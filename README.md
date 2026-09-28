@@ -101,6 +101,10 @@ Annotations are objects, not pixels: **Undo** removes the last shape, and tappin
 shape selects it for removal. They are applied to the full-resolution image *before*
 cropping and scaling, so strokes stay crisp and proportionate at any output width.
 
+The editor shows the **cropped** region when a crop is active — what you draw on is what
+you will send. Annotations are still stored in full-image coordinates and mapped through
+the crop at the end; only the view is cropped, so nothing about the output changed.
+
 > **Blur is an effect, not a redaction.** A Gaussian blur is smooth and
 > information-preserving, so it is partially invertible in principle. For genuinely
 > private content use an **opaque filled shape**, which discards the pixels outright.
