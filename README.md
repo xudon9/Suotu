@@ -138,13 +138,18 @@ gallery without asking:
 | **Shrink it straight away** (default) | The small copy is written to the gallery and a notification offers to send it | You send most screenshots you take |
 | **Just tell me** | Nothing is decoded, encoded or written; a notification with a thumbnail asks first | You send only some of them |
 
-In "Just tell me" mode you also choose what a tap does, because those are two different
-intentions rather than a matter of taste:
+**The notification carries both choices as buttons** — *Shrink & share* and *Edit first*
+— so you decide per screenshot, at the moment you tap. A setting picks which one a plain
+tap on the notification body does, because that is the quick path and it should not need
+aim:
 
-| On tap | What happens |
+| Setting | What a plain tap does |
 |---|---|
 | **Shrink and share** (default) | Shrinks and goes straight to the share sheet, with a small progress card in between. The tap *was* the decision. |
 | **Open the editor first** | Opens the shot in the app, so you can crop or annotate before sending. |
+
+The buttons exist because whether a given screenshot needs cropping is not knowable in
+advance — that is a per-shot decision, not a preference.
 
 Either way, tapping does not go through the main screen first. In direct mode the result
 goes to the share cache rather than your gallery — you asked to *send* that shot, not to

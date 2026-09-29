@@ -253,6 +253,14 @@ private fun AutoShrinkSection(settings: Settings) {
                             settings.autoShrinkDirectShare = false
                         },
                     )
+                    Spacer(Modifier.height(4.dp))
+                    // Without this the radio looks like the only way to choose, and a
+                    // user who wants to crop just one shot would go hunting in Settings.
+                    Text(
+                        stringResource(R.string.auto_tap_note),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
 

@@ -7,10 +7,6 @@
     <string name="settings">设置</string>
     <string name="open_an_image">选择图片</string>
     <string name="change">更换</string>
-    <string name="send_size">发送 · %1$s</string>
-    <string name="before">压缩前</string>
-    <string name="after">压缩后</string>
-    <string name="saved">已节省</string>
     <string name="looking_for_recent">正在查找最近的图片…</string>
     <string name="pick_an_image">请选择要压缩的图片。</string>
     <string name="no_match_recent">最近 %1$s 内没有符合条件的图片。</string>
@@ -90,26 +86,19 @@
     <string name="notif_title">小图已就绪</string>
     <string name="notif_text">%1$s → %2$s</string>
     <string name="notif_text_saved">%1$s → %2$s · 减少 %3$d%%</string>
-    <string name="notif_action_share">分享</string>
     <string name="notif_tap_hint">点击分享</string>
 
     <!-- Size slider -->
     <string name="width_label">输出宽度</string>
     <string name="width_value">宽 %1$d 像素</string>
-    <string name="width_result">%1$d × %2$d</string>
-    <string name="quick_sizes">快捷尺寸</string>
-    <string name="quality_auto_note">画质会自动选择，以保证文字清晰。</string>
 
     <!-- Crop -->
-    <string name="crop">裁剪</string>
     <string name="crop_title">裁剪</string>
     <string name="crop_hint">拖动四角或边缘调整，拖动内部可移动。</string>
-    <string name="crop_reset">重置</string>
     <string name="crop_apply">应用</string>
     <string name="crop_full">整张</string>
 
     <!-- Fullscreen preview -->
-    <string name="preview_fullscreen">点击全屏查看</string>
     <string name="preview_zoom_hint">双指缩放 · 双击复位</string>
 
     <!-- Help -->
@@ -149,31 +138,24 @@
     <string name="about_built_with">使用 Kotlin 与 Jetpack Compose 构建。图像编码使用 Android 平台自带的 WebP 与 JPEG 编码器，未引入第三方图像库。</string>
     <string name="about_no_network">本应用不申请任何网络权限。</string>
     <string name="about_copy">复制信息</string>
-    <string name="about_copied">已复制</string>
 
     <!-- Draw-to-select -->
-    <string name="draw_hint">在图片上画出要保留的区域 · 点击可全屏查看</string>
-    <string name="draw_selected">已选择原图的 %1$d × %2$d</string>
     <string name="clear_selection">整张图片</string>
     <string name="adjust">微调</string>
 
     <!-- Replace original -->
-    <string name="replace_original">替换原图</string>
     <string name="replace_confirm_title">替换原图？</string>
     <string name="replace_confirm_body">原始大图将被 %1$s 版本覆盖，且无法恢复。\n\n%2$s → %3$s</string>
     <string name="replace_confirm_rename">文件将重命名为 %1$s 以匹配新格式。</string>
     <string name="replace_confirm_ok">替换</string>
     <string name="replace_done">原图已替换</string>
     <string name="replace_failed">无法替换原图：%1$s</string>
-    <string name="replace_not_supported">该图片无法就地替换。请从相册中选择，或通过分享打开。</string>
 
     <!-- Quality slider -->
     <string name="quality_label">画质</string>
     <string name="quality_auto">自动</string>
     <string name="quality_auto_detail">自动（%1$d）</string>
     <string name="quality_manual">手动 %1$d</string>
-    <string name="quality_note_auto">画质会自动选择以满足体积预算。</string>
-    <string name="quality_note_manual">越高越清晰但文件越大。截图推荐使用自动模式。</string>
 
     <!-- Annotation -->
     <string name="annotate">标注</string>
@@ -183,9 +165,7 @@
     <string name="annotate_tool_circle">圆形</string>
     <string name="annotate_tool_arrow">箭头</string>
     <string name="annotate_tool_text">文字</string>
-    <string name="annotate_tool_blur">模糊</string>
     <string name="annotate_thickness">粗细</string>
-    <string name="annotate_color">颜色</string>
     <string name="annotate_undo">撤销</string>
     <string name="annotate_clear">清除全部</string>
     <string name="annotate_apply">应用</string>
@@ -243,4 +223,7 @@
     <string name="auto_tap_direct_desc">一步跳到分享面板。适合截图不需要修改的情况。</string>
     <string name="auto_tap_edit">先打开编辑器</string>
     <string name="auto_tap_edit_desc">先裁切或标注，再发送。适合经常需要裁剪或标记的情况。</string>
+    <string name="notif_action_share">缩小并分享</string>
+    <string name="notif_action_edit">先编辑</string>
+    <string name="auto_tap_note">通知上始终有这两个按钮；这里只是决定直接点通知时的默认行为。</string>
 </resources>

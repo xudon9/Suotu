@@ -177,10 +177,14 @@ object ShrinkNotifier {
     /**
      * On-demand mode: a screenshot was detected, but nothing has been shrunk or written.
      *
-     * Tapping opens it in the app via the ordinary share path, so the result can be
-     * checked — and cropped or annotated — before anything is sent or saved. Doing the
-     * work on tap rather than on detection is the point of this mode: no files appear in
-     * the gallery for screenshots you were never going to send.
+     * Doing the work on tap rather than on detection is the point of this mode: no files
+     * appear in the gallery for screenshots you were never going to send.
+     *
+     * Both ways of acting are offered as ACTION BUTTONS, so the choice is made per
+     * screenshot at the moment of tapping rather than only as a preference set in
+     * advance. The setting still decides what tapping the notification BODY does, which
+     * is what a quick tap should do — but a button is always available to override it,
+     * because whether a given shot needs cropping is not knowable ahead of time.
      */
     fun notifyAvailable(context: Context, uri: Uri, sourceBytes: Long) {
         ensureChannel(context)
@@ -193,22 +197,38 @@ object ShrinkNotifier {
         //
         // The edit path reuses the ordinary ACTION_SEND entry point, so it cannot drift
         // from a normal share into the app.
-        val open = if (Settings(context).autoShrinkDirectShare) {
-            QuickShrinkActivity.intent(context, uri)
-        } else {
-            Intent(context, ShrinkActivity::class.java).apply {
-                action = Intent.ACTION_SEND
-                type = "image/*"
-                putExtra(Intent.EXTRA_STREAM, uri)
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            }
-        }.apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        // The two ways of acting, built once and used for both the body tap and the
+        // buttons.
+        //
+        // The edit path reuses the ordinary ACTION_SEND entry point, so it cannot drift
+        // from a normal share into the app.
+        val directIntent = QuickShrinkActivity.intent(context, uri)
+        val editIntent = Intent(context, ShrinkActivity::class.java).apply {
+            action = Intent.ACTION_SEND
+            type = "image/*"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
         }
+
+        // Distinct request codes per screenshot. PendingIntent equality ignores extras,
+        // so the three intents for one image must not share a code — with
+        // FLAG_UPDATE_CURRENT one would silently overwrite another and a button would
+        // launch the wrong thing.
+        val base = uri.hashCode()
+        val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+
         val openPending = PendingIntent.getActivity(
-            context, uri.hashCode(), open,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            context, base, (if (Settings(context).autoShrinkDirectShare) directIntent
+            else editIntent).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }, flags,
+        )
+        val directPending = PendingIntent.getActivity(
+            context, base + 1, directIntent.apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) },
+            flags,
+        )
+        val editPending = PendingIntent.getActivity(
+            context, base + 2, editIntent.apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) },
+            flags,
         )
 
         val text = if (sourceBytes > 0) {
@@ -223,6 +243,18 @@ object ShrinkNotifier {
             .setContentText(text)
             .setSubText(context.getString(R.string.notif_offer_hint))
             .setContentIntent(openPending)
+            // Both choices as buttons. Labels are kept short on purpose: action buttons
+            // are single-line and get truncated on a narrow shade.
+            .addAction(
+                R.drawable.ic_notification,
+                context.getString(R.string.notif_action_share),
+                directPending,
+            )
+            .addAction(
+                R.drawable.ic_notification,
+                context.getString(R.string.notif_action_edit),
+                editPending,
+            )
             .setAutoCancel(true)
             .setSilent(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
