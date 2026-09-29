@@ -143,6 +143,7 @@ private fun AutoShrinkSection(settings: Settings) {
     var enabled by remember { mutableStateOf(settings.autoShrinkEnabled) }
     var notify by remember { mutableStateOf(settings.autoShrinkNotify) }
     var eager by remember { mutableStateOf(settings.autoShrinkEager) }
+    var directShare by remember { mutableStateOf(settings.autoShrinkDirectShare) }
     var rules by remember { mutableStateOf(settings.autoShrinkRules) }
     var denied by remember { mutableStateOf(false) }
 
@@ -221,6 +222,38 @@ private fun AutoShrinkSection(settings: Settings) {
                         settings.autoShrinkEager = false
                     },
                 )
+
+                // What the offer notification does when tapped. Nested under the mode it
+                // belongs to: it is meaningless while the watcher shrinks eagerly, so
+                // showing it there would just be a disabled control asking to be
+                // reasoned about.
+                if (!eager) {
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        stringResource(R.string.auto_tap_title),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    WatchModeOption(
+                        selected = directShare,
+                        titleRes = R.string.auto_tap_direct,
+                        descRes = R.string.auto_tap_direct_desc,
+                        onClick = {
+                            directShare = true
+                            settings.autoShrinkDirectShare = true
+                        },
+                    )
+                    WatchModeOption(
+                        selected = !directShare,
+                        titleRes = R.string.auto_tap_edit,
+                        descRes = R.string.auto_tap_edit_desc,
+                        onClick = {
+                            directShare = false
+                            settings.autoShrinkDirectShare = false
+                        },
+                    )
+                }
             }
 
             if (denied) {

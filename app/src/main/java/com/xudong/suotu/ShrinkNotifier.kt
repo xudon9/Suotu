@@ -185,10 +185,25 @@ object ShrinkNotifier {
     fun notifyAvailable(context: Context, uri: Uri, sourceBytes: Long) {
         ensureChannel(context)
 
-        // Straight to the quick path: shrink, then share. The user has already said
-        // what they want by tapping, so opening the editor would be an extra hop whose
-        // only outcome is usually "send" anyway.
-        val open = QuickShrinkActivity.intent(context, uri).apply {
+        // Where a tap lands depends on the user's choice, and the two are genuinely
+        // different intentions rather than a preference about styling:
+        //
+        //   direct - shrink and share. The tap WAS the decision.
+        //   edit   - open the editor first, to crop or annotate before sending.
+        //
+        // The edit path reuses the ordinary ACTION_SEND entry point, so it cannot drift
+        // from a normal share into the app.
+        val open = if (Settings(context).autoShrinkDirectShare) {
+            QuickShrinkActivity.intent(context, uri)
+        } else {
+            Intent(context, ShrinkActivity::class.java).apply {
+                action = Intent.ACTION_SEND
+                type = "image/*"
+                putExtra(Intent.EXTRA_STREAM, uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            }
+        }.apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         val openPending = PendingIntent.getActivity(

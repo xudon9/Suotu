@@ -239,4 +239,9 @@
     <string name="notif_offer_text_plain">Tap to shrink and send</string>
     <string name="notif_offer_hint">Nothing saved yet</string>
     <string name="quick_shrinking">Shrinking…</string>
+    <string name="auto_tap_title">When you tap the notification</string>
+    <string name="auto_tap_direct">Shrink and share</string>
+    <string name="auto_tap_direct_desc">One tap, straight to the share sheet. Best when the screenshot needs no changes.</string>
+    <string name="auto_tap_edit">Open the editor first</string>
+    <string name="auto_tap_edit_desc">Crop or annotate, then send. Best when you often need to trim or mark up a shot.</string>
 </resources>

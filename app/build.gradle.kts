@@ -18,8 +18,8 @@ android {
         // cache untouched, so a corrected icon keeps rendering as the old one — which
         // cost real debugging time: the new drawable was verifiably inside the APK on
         // the device while the notification still showed the previous mark.
-        versionCode = 5
-        versionName = "1.4"
+        versionCode = 6
+        versionName = "1.5"
     }
 
     buildTypes {

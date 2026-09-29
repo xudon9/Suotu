@@ -55,6 +55,19 @@ class Settings(context: Context) {
         get() = prefs.getBoolean(KEY_AUTO_EAGER, true)
         set(value) = prefs.edit().putBoolean(KEY_AUTO_EAGER, value).apply()
 
+    /**
+     * On-demand mode only: what tapping the offer notification should do.
+     *
+     * true  - shrink and go straight to the share sheet.
+     * false - open the editor first, so the shot can be cropped or annotated.
+     *
+     * Defaults to direct, since that is the path a notification tap implies: the user
+     * has already decided. Editing is the deliberate detour, not the default.
+     */
+    var autoShrinkDirectShare: Boolean
+        get() = prefs.getBoolean(KEY_AUTO_DIRECT, true)
+        set(value) = prefs.edit().putBoolean(KEY_AUTO_DIRECT, value).apply()
+
     var autoShrinkNotify: Boolean
         get() = prefs.getBoolean(KEY_AUTO_NOTIFY, true)
         set(value) = prefs.edit().putBoolean(KEY_AUTO_NOTIFY, value).apply()
@@ -122,6 +135,7 @@ class Settings(context: Context) {
         private const val KEY_AUTO = "auto_shrink"
         private const val KEY_AUTO_NOTIFY = "auto_shrink_notify"
         private const val KEY_AUTO_EAGER = "auto_shrink_eager"
+        private const val KEY_AUTO_DIRECT = "auto_shrink_direct"
         private const val KEY_AUTO_RULES = "auto_shrink_rules"
         private const val KEY_OPEN_RULES = "open_rules"
         private const val KEY_OPEN_RECENCY = "open_recency_seconds"

@@ -238,4 +238,9 @@
     <string name="notif_offer_text_plain">点击缩小并发送</string>
     <string name="notif_offer_hint">尚未保存</string>
     <string name="quick_shrinking">正在缩小…</string>
+    <string name="auto_tap_title">点通知时</string>
+    <string name="auto_tap_direct">直接缩小并分享</string>
+    <string name="auto_tap_direct_desc">一步跳到分享面板。适合截图不需要修改的情况。</string>
+    <string name="auto_tap_edit">先打开编辑器</string>
+    <string name="auto_tap_edit_desc">先裁切或标注，再发送。适合经常需要裁剪或标记的情况。</string>
 </resources>
