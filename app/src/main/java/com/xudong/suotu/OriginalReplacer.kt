@@ -4,6 +4,7 @@ import android.app.Activity
 import android.app.RecoverableSecurityException
 import android.content.ContentValues
 import android.content.Context
+import android.content.ContentUris
 import android.content.IntentSender
 import android.net.Uri
 import android.os.Build
@@ -49,20 +50,24 @@ object OriginalReplacer {
      * @param result the shrunk bytes to write in its place.
      */
     fun replace(context: Context, uri: Uri, result: ShrinkResult): ReplaceResult {
-        // Only MediaStore rows can be rewritten in place. A transient share uri from
-        // another app (or a picker uri) is read-only by design.
-        if (!isMediaStoreUri(uri)) {
-            return ReplaceResult.Failed("not a gallery item")
-        }
+        // Resolve first. A picker uri is not writable itself but can point at a row that
+        // is, so the target is not always the uri we were handed.
+        val target = writableUriFor(context, uri)
+            ?: return ReplaceResult.Failed(
+                context.getString(
+                    if (isPickerUri(uri)) R.string.replace_reason_picker
+                    else R.string.replace_reason_not_gallery
+                )
+            )
 
         val resolver = context.contentResolver
         return try {
             // Keep the extension honest when the format changed.
-            val currentName = queryName(context, uri)
+            val currentName = queryName(context, target)
             val newName = currentName?.let { renameForFormat(it, result.format) }
 
             // "w" truncates, so the old, larger content cannot survive as a tail.
-            resolver.openOutputStream(uri, "w")?.use { out ->
+            resolver.openOutputStream(target, "w")?.use { out ->
                 out.write(result.bytes)
             } ?: return ReplaceResult.Failed("could not open the file for writing")
 
@@ -75,7 +80,7 @@ object OriginalReplacer {
                     put(MediaStore.Images.Media.DISPLAY_NAME, newName)
                 }
             }
-            resolver.update(uri, values, null, null)
+            resolver.update(target, values, null, null)
 
             ReplaceResult.Success
         } catch (e: SecurityException) {
@@ -99,9 +104,51 @@ object OriginalReplacer {
         }
     }
 
-    /** True if [uri] is a MediaStore item this app can attempt to rewrite. */
+    /**
+     * True if [uri] is a MediaStore row this app can attempt to rewrite.
+     *
+     * Picker uris are excluded deliberately. They share MediaStore's authority —
+     * content://media/picker/0/<pkg>/media/<id> — so an authority check alone accepts
+     * them, and the write then fails with "PhotoPicker Uri can only be accessed by ...".
+     * The picker grants READ access only, by design: it exists so an app can read a
+     * photo without holding the media permission, which is exactly what makes it
+     * unusable as a write target.
+     */
     fun isMediaStoreUri(uri: Uri): Boolean =
-        uri.scheme == "content" && uri.authority == MediaStore.AUTHORITY
+        uri.scheme == "content" &&
+            uri.authority == MediaStore.AUTHORITY &&
+            !isPickerUri(uri)
+
+    /** True for a system-photo-picker uri, which is read-only by design. */
+    fun isPickerUri(uri: Uri): Boolean =
+        uri.scheme == "content" &&
+            uri.authority == MediaStore.AUTHORITY &&
+            uri.pathSegments.firstOrNull() == "picker"
+
+    /**
+     * The writable MediaStore row behind [uri], or null when there is nothing to write.
+     *
+     * For an ordinary gallery uri that is the uri itself. For a picker uri the trailing
+     * path segment IS the MediaStore row id, so when the app holds read permission the
+     * real row can be resolved and overwritten rather than refusing the action outright
+     * — which is what makes "overwrite original" work for an image chosen in the picker
+     * instead of only explaining why it cannot.
+     *
+     * Without read permission there is nothing to resolve to, and the caller should
+     * offer "save as new" instead.
+     */
+    fun writableUriFor(context: Context, uri: Uri): Uri? {
+        if (!isPickerUri(uri)) return uri.takeIf { isMediaStoreUri(it) }
+        if (!hasMediaReadPermission(context)) return null
+
+        val id = uri.lastPathSegment?.toLongOrNull() ?: return null
+        val resolved = ContentUris.withAppendedId(
+            MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id
+        )
+        // Confirm the row is actually visible before promising a write: the picker hands
+        // out ids from its own space, and not every one names a row we may read.
+        return resolved.takeIf { queryName(context, it) != null }
+    }
 
     fun queryName(context: Context, uri: Uri): String? =
         runCatching {

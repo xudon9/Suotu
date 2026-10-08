@@ -126,6 +126,12 @@ When overwriting, the file name follows the actual format — writing WebP bytes
 when the name will change. Android 10+ requires user consent to modify media the app did
 not create, which is surfaced and the write retried.
 
+One case needs explaining rather than failing: an image opened through the **system photo
+picker** is read-only by design. The picker exists so an app can read a photo *without*
+holding the media permission, so its uri can never be a write target. Suotu resolves the
+real gallery row behind it and overwrites that instead, when it holds the read
+permission; otherwise it offers *Save as new* and says why.
+
 ## Watching for screenshots
 
 Off by default. When on, the watcher is woken by MediaStore events — nothing polls.
@@ -231,6 +237,8 @@ python3 tools/test_blur_perf_model.py      # per-frame drag cost stays constant
 python3 tools/test_auto_format.py          # Auto picks the smaller file
 python3 tools/test_settings_consistency.py # watcher and UI honour the same settings
 python3 tools/test_notification_thumbnail.py # thumbnails stay under the Binder limit
+python3 tools/test_uri_writability.py      # which images can be overwritten in place
+python3 tools/test_string_resources.py     # duplicate, missing and stale strings
 ```
 
 Several of these exist because they caught a real bug — the crop grab zone being

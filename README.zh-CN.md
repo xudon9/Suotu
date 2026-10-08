@@ -110,6 +110,10 @@
 名字要变，对话框会提前说明。Android 10 及以上修改非本应用创建的媒体文件需要用户授权，应用会
 弹出授权并在之后重试写入。
 
+有一种情况需要说明而不是直接失败：通过**系统选择器**打开的图片本身就是只读的。选择器存在的
+意义就是让应用**不需要**相册权限也能读取图片，所以它的 URI 永远不能作为写入目标。缩图会尝试
+解析出它背后的真实相册记录再覆盖；如果连读取权限都没有，就改为提供「另存为新图」并说明原因。
+
 ## 监听截图
 
 默认关闭。开启后由 MediaStore 事件唤醒，不做轮询。
@@ -203,6 +207,8 @@ python3 tools/test_blur_perf_model.py      # 每帧拖拽开销保持恒定
 python3 tools/test_auto_format.py          # 自动选择更小的文件
 python3 tools/test_settings_consistency.py # 监听与界面遵循同一套设置
 python3 tools/test_notification_thumbnail.py # 缩略图不超过 Binder 上限
+python3 tools/test_uri_writability.py      # 哪些图片可以原地覆盖
+python3 tools/test_string_resources.py     # 重复、缺失与废弃的字符串
 ```
 
 其中好几个是因为真的抓到过 bug 才存在的 —— 裁切抓取区左右不对称、模糊取错了位置的像素、

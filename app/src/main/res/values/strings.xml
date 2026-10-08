@@ -227,4 +227,7 @@
     <string name="notif_action_share">Shrink &amp; share</string>
     <string name="notif_action_edit">Edit first</string>
     <string name="auto_tap_note">The notification always offers both as buttons; this picks what a plain tap does.</string>
+    <string name="save_overwrite_unavailable">Not available for this image</string>
+    <string name="replace_reason_picker">Images opened with the system picker are read-only. Use "Save as new" instead.</string>
+    <string name="replace_reason_not_gallery">This image is not in your gallery, so there is nothing to replace.</string>
 </resources>

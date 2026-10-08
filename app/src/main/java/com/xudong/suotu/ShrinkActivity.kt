@@ -314,8 +314,11 @@ class ShrinkActivity : AppCompatActivity() {
                         manualQuality = manualQuality,
                         optionsExpanded = optionsExpanded,
                         canAnnotate = img != null,
+                        // Whether the original can actually be rewritten, which is not
+                        // the same as "is a gallery item": a picker uri is not writable
+                        // itself but may resolve to a row that is.
                         canReplace = source?.let {
-                            OriginalReplacer.isMediaStoreUri(it)
+                            OriginalReplacer.writableUriFor(this, it) != null
                         } == true,
                         saveMenuOpen = saveMenuOpen,
                         onOptionsExpandedChange = { optionsExpanded = it },
@@ -665,8 +668,14 @@ class ShrinkActivity : AppCompatActivity() {
                 text = {
                     Column {
                         Text(stringResource(R.string.save_overwrite))
+                        // Say WHY it is unavailable. A greyed-out entry with no reason
+                        // reads as a bug, and the reason is not guessable — the picker
+                        // looks like any other way of opening a photo.
                         Text(
-                            stringResource(R.string.save_overwrite_desc),
+                            stringResource(
+                                if (canOverwrite) R.string.save_overwrite_desc
+                                else R.string.save_overwrite_unavailable
+                            ),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )

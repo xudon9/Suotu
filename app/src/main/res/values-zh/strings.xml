@@ -226,4 +226,7 @@
     <string name="notif_action_share">缩小并分享</string>
     <string name="notif_action_edit">先编辑</string>
     <string name="auto_tap_note">通知上始终有这两个按钮；这里只是决定直接点通知时的默认行为。</string>
+    <string name="save_overwrite_unavailable">此图片不支持</string>
+    <string name="replace_reason_picker">通过系统选择器打开的是只读图片，请改用「另存为新图」。</string>
+    <string name="replace_reason_not_gallery">这张图片不在相册中，没有可替换的原图。</string>
 </resources>
