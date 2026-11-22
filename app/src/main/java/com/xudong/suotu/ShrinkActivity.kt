@@ -256,15 +256,19 @@ class ShrinkActivity : AppCompatActivity() {
 
                 val img = sourceImage
 
-                // Annotations are stored in FULL-IMAGE normalised coordinates — the
-                // renderer crops afterwards — so the editor has always been handed the
-                // whole bitmap. That made the screen disagree with the work: after
-                // cropping, annotating showed the uncropped shot (and everything you
-                // drew sat inside a region you had already cut away).
+                // The editor is handed the CROPPED bitmap, so what you draw on is what
+                // you will send. Annotations are still STORED in whole-image
+                // coordinates — the engine annotates the full bitmap and crops
+                // afterwards — so the editor also receives the crop rect and converts
+                // between the two spaces at its boundary.
                 //
-                // Handing the editor the CROPPED bitmap fixes the view without touching
-                // the coordinate system: the editor normalises against whatever bitmap
-                // it is given, and AnnotationRenderer maps those onto the crop rect.
+                // A previous version of this comment claimed the renderer mapped
+                // editor coordinates onto the crop rect. No such mapping existed: the
+                // cropped bitmap was handed over with no conversion, cropped-space
+                // coordinates were stored as whole-image ones, and every shape came
+                // out enlarged and displaced. The mapping lives in AnnotationEditor
+                // now, and tools/test_annotation_crop_coords.py pins the invariant.
+                //
                 // Bitmap.createBitmap shares pixel data rather than copying it, so this
                 // is cheap — but not free, hence keying it on the crop rather than
                 // recomputing every recomposition.
@@ -284,6 +288,7 @@ class ShrinkActivity : AppCompatActivity() {
                     ) {
                         AnnotationEditor(
                             image = annotateImage,
+                            crop = crop,
                             state = annotations,
                             onStateChange = { annotations = it },
                             onApply = { annotating = false },

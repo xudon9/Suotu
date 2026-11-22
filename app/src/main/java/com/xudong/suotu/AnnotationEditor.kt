@@ -67,6 +67,8 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun AnnotationEditor(
     image: ImageBitmap,
+    /** The crop [image] already reflects; the editor converts coordinates against it. */
+    crop: CropRect,
     state: AnnotationState,
     onStateChange: (AnnotationState) -> Unit,
     onApply: () -> Unit,
@@ -90,8 +92,36 @@ fun AnnotationEditor(
     var textAt by remember { mutableStateOf<Offset?>(null) }
     var textValue by remember { mutableStateOf("") }
 
-    val stateRef = rememberUpdatedState(state)
+    // Coordinate spaces, converted HERE and nowhere else.
+    //
+    // The editor's whole world is the CROPPED bitmap [image]: gestures, drafts,
+    // hit-testing and rendering all normalise against it. Stored annotations are in
+    // WHOLE-IMAGE coordinates — the engine annotates the full bitmap and crops
+    // afterwards, by design, so that annotating and cropping commute and strokes stay
+    // attached to image content rather than to a particular crop.
+    //
+    // An earlier change handed this editor the cropped bitmap without converting, so
+    // cropped-space coordinates were stored as if whole-image ones: every shape came
+    // out enlarged and displaced, because the engine drew it at whole-image scale and
+    // then cropped. For a full-frame crop the two spaces coincide, which is exactly why
+    // it looked fine until someone cropped first.
+    //
+    // For CropRect.FULL both mappings are the identity.
+    val toFull: (Offset) -> Offset = { p ->
+        Offset(crop.left + p.x * crop.width, crop.top + p.y * crop.height)
+    }
+    val toLocal: (Offset) -> Offset = { p ->
+        Offset((p.x - crop.left) / crop.width, (p.y - crop.top) / crop.height)
+    }
+
+    val localState = remember(state, crop) { state.mapItems(toLocal) }
+    val stateRef = rememberUpdatedState(localState)
     val onStateChangeRef = rememberUpdatedState(onStateChange)
+
+    /** Push a LOCAL-coordinate state out, converted to whole-image coordinates. */
+    fun push(s: AnnotationState) {
+        onStateChangeRef.value(s.mapItems(toFull))
+    }
     val toolRef = rememberUpdatedState(tool)
     val colorRef = rememberUpdatedState(color)
     val fillRef = rememberUpdatedState(fillColor)
@@ -201,9 +231,7 @@ fun AnnotationEditor(
                                         textAt = start
                                         textValue = ""
                                     } else {
-                                        onStateChangeRef.value(
-                                            current.select(current.hitTest(start))
-                                        )
+                                        push(current.select(current.hitTest(start)))
                                     }
                                     return@awaitEachGesture
                                 }
@@ -237,7 +265,7 @@ fun AnnotationEditor(
                                 draftStart = null
                                 draftEnd = null
                                 if (committed != null) {
-                                    onStateChangeRef.value(current.add(committed))
+                                    push(current.add(committed))
                                 }
                             }
                         }
@@ -413,7 +441,7 @@ fun AnnotationEditor(
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             TextButton(
-                onClick = { onStateChange(state.undo()) },
+                onClick = { push(localState.undo()) },
                 enabled = !state.isEmpty,
             ) { Text(stringResource(R.string.annotate_undo)) }
 
@@ -424,7 +452,7 @@ fun AnnotationEditor(
 
             // Only offered when a shape is actually selected.
             if (state.selectedIndex != null) {
-                TextButton(onClick = { onStateChange(state.removeSelected()) }) {
+                TextButton(onClick = { push(localState.removeSelected()) }) {
                     Text(stringResource(R.string.remove))
                 }
             }
@@ -469,7 +497,7 @@ fun AnnotationEditor(
             confirmButton = {
                 TextButton(onClick = {
                     confirmClear = false
-                    onStateChange(state.clear())
+                    push(localState.clear())
                 }) { Text(stringResource(R.string.annotate_clear)) }
             },
             dismissButton = {
@@ -496,8 +524,8 @@ fun AnnotationEditor(
                 TextButton(
                     onClick = {
                         if (textValue.isNotBlank()) {
-                            onStateChange(
-                                state.add(
+                            push(
+                                localState.add(
                                     Annotation.Text(at, textValue.trim(), color, thickness)
                                 )
                             )

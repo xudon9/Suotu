@@ -107,8 +107,10 @@ shape selects it for removal. They are applied to the full-resolution image *bef
 cropping and scaling, so strokes stay crisp and proportionate at any output width.
 
 The editor shows the **cropped** region when a crop is active — what you draw on is what
-you will send. Annotations are still stored in full-image coordinates and mapped through
-the crop at the end; only the view is cropped, so nothing about the output changed.
+you will send. Annotations remain stored in whole-image coordinates (the engine annotates
+before cropping, so marks stay attached to image content even if you re-crop afterwards);
+the editor converts between that space and the cropped view at its boundary, pinned by
+`tools/test_annotation_crop_coords.py`.
 
 > **Blur is an effect, not a redaction.** A Gaussian blur is smooth and
 > information-preserving, so it is partially invertible in principle. For genuinely
@@ -237,6 +239,7 @@ python3 tools/test_blur_perf_model.py      # per-frame drag cost stays constant
 python3 tools/test_auto_format.py          # Auto picks the smaller file
 python3 tools/test_settings_consistency.py # watcher and UI honour the same settings
 python3 tools/test_notification_thumbnail.py # thumbnails stay under the Binder limit
+python3 tools/test_annotation_crop_coords.py # marks land where they were drawn
 python3 tools/test_uri_writability.py      # which images can be overwritten in place
 python3 tools/test_string_resources.py     # duplicate, missing and stale strings
 ```

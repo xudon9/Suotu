@@ -94,8 +94,9 @@
 标注是对象而不是像素：**撤销**删除最后一个形状，点选某个形状即可删除它。标注作用在**全分辨率
 原图**上，且发生在裁切和缩放**之前**，所以不论输出多宽，笔触都保持锐利且比例正确。
 
-有裁切时，标注界面显示的就是**裁切后**的区域 —— 画什么就是发什么。标注本身仍以整图坐标存储，
-在最后一步才映射到裁切范围；变的只是视图，输出完全没变。
+有裁切时，标注界面显示的就是**裁切后**的区域 —— 画什么就是发什么。标注仍以整图坐标存储
+（引擎先标注再裁切，所以之后重新裁切时标记仍贴在图像内容上）；编辑器在边界处完成两个坐标系
+之间的换算，由 `tools/test_annotation_crop_coords.py` 保证。
 
 > **模糊是效果，不是打码。** 高斯模糊是平滑且保留信息的变换，理论上可以被部分还原。真要遮
 > 隐私内容，请用**不透明实心形状**，那才是真正丢弃像素。
@@ -207,6 +208,7 @@ python3 tools/test_blur_perf_model.py      # 每帧拖拽开销保持恒定
 python3 tools/test_auto_format.py          # 自动选择更小的文件
 python3 tools/test_settings_consistency.py # 监听与界面遵循同一套设置
 python3 tools/test_notification_thumbnail.py # 缩略图不超过 Binder 上限
+python3 tools/test_annotation_crop_coords.py # 标注落在画下的位置
 python3 tools/test_uri_writability.py      # 哪些图片可以原地覆盖
 python3 tools/test_string_resources.py     # 重复、缺失与废弃的字符串
 ```

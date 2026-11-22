@@ -46,6 +46,24 @@ sealed interface Annotation {
     /** Bounding box, used for hit-testing and for the selection outline. */
     fun bounds(): CropRect
 
+    /**
+     * A copy with every coordinate mapped through [f].
+     *
+     * Exists because the editor works in CROPPED-image coordinates while stored
+     * annotations are in WHOLE-IMAGE coordinates (the engine annotates before
+     * cropping), so the two spaces must be converted at exactly one boundary rather
+     * than at every gesture handler. Colour, thickness and text pass through
+     * unchanged: only positions are space-dependent.
+     */
+    fun mapped(f: (Offset) -> Offset): Annotation = when (this) {
+        is Freehand -> copy(points = points.map(f))
+        is Rect -> copy(start = f(start), end = f(end))
+        is Ellipse -> copy(start = f(start), end = f(end))
+        is Arrow -> copy(from = f(from), to = f(to))
+        is Text -> copy(at = f(at))
+        is Blur -> copy(start = f(start), end = f(end))
+    }
+
     data class Freehand(
         val points: List<Offset>,
         override val color: Long,
@@ -151,6 +169,10 @@ data class AnnotationState(
     val selectedIndex: Int? = null,
 ) {
     val isEmpty: Boolean get() = items.isEmpty()
+
+    /** All items mapped through [f]; the selection index is positional and unaffected. */
+    fun mapItems(f: (Offset) -> Offset) =
+        copy(items = items.map { it.mapped(f) })
 
     fun add(item: Annotation) = copy(items = items + item, selectedIndex = null)
 
